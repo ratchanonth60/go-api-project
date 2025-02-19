@@ -1,15 +1,15 @@
 name: Build
 
 on:
-  push:
-    branches: ["main"]
-  pull_request:
-    branches: ["main"]
+  workflow_run:
+    workflows: ["Test"] # ช���่อ workflow test.yml
+    types:
+      - completed
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    needs: test
+    if: ${{ github.event.workflow_run.conclusion == 'success' }} # ตรวจสอบว่า workflow test สำเร็จ
     steps:
       - uses: actions/checkout@v4
 
