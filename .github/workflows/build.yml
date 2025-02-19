@@ -52,8 +52,8 @@ jobs:
           ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
           echo "IMAGE_URI: $IMAGE_URI"
           if [[ -n "$IMAGE_URI" ]]; then
-            docker tag $IMAGE_URI $ECR_REGISTRY/golang/api:${IMAGE_URI##*:}
-            echo "image=$ECR_REGISTRY/golang/api:${IMAGE_URI##*:}" >> "$GITHUB_OUTPUT"
+            docker tag $IMAGE_URI $ECR_REGISTRY/${{ vars.REPO_NAME }}:${IMAGE_URI##*:}
+            echo "image=$ECR_REGISTRY/${{ vars.REPO_NAME }}:${IMAGE_URI##*:}" >> "$GITHUB_OUTPUT"
           else
             echo "Error: No output from build workflow."
             exit 1
