@@ -1,13 +1,15 @@
 name: Push to ECR
 
 on:
-  push:
-    branches: ["main"]
+  workflow_run:
+    workflows: ["Build"]
+    types:
+      - completed
 
 jobs:
   push:
     runs-on: ubuntu-latest
-    needs: build
+    if: ${{ github.event.workflow_run.conclusion == 'success' }} # ตรวจสอบว่า workflow build สำเร็จ
     steps:
       - uses: actions/checkout@v4
 
@@ -26,8 +28,8 @@ jobs:
         id: tag-image
         run: |
           ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
-          IMAGE_URI="$ECR_REGISTRY/your-repo-name:${{ needs.build.outputs.image }}"
-          docker tag ${{ needs.build.outputs.image }} $IMAGE_URI
+          IMAGE_URI="$ECR_REGISTRY/your-repo-name:${{ github.event.workflow_run.conclusion == 'success' && fromJson(github.event.workflow_run.outputs.build.outputs).image || '' }}"
+          docker tag ${{ fromJson(github.event.workflow_run.outputs.build.outputs).image }} $IMAGE_URI
           echo "image=$IMAGE_URI" >> $GITHUB_OUTPUT
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
