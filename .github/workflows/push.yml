@@ -32,10 +32,11 @@ jobs:
         run: |
           ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
           IMAGE_OUTPUT="${{ github.event.workflow_run.outputs.build.outputs }}"
+          echo "$IMAGE_OUTPUT"
           if [[ -n "$IMAGE_OUTPUT" ]]; then
             IMAGE_JSON=$(echo "$IMAGE_OUTPUT" | jq -r '.')
             if [[ -n "$IMAGE_JSON" ]]; then
-              IMAGE_URI="$ECR_REGISTRY/your-repo-name:$(echo "$IMAGE_JSON" | jq -r '.image')"
+              IMAGE_URI="$ECR_REGISTRY/${{ vars.REPO_NAME }}:$(echo "$IMAGE_JSON" | jq -r '.image')"
               docker tag $(echo "$IMAGE_JSON" | jq -r '.image') $IMAGE_URI
               echo "image=$IMAGE_URI" >> $GITHUB_OUTPUT
             else
