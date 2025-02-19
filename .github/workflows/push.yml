@@ -31,9 +31,21 @@ jobs:
         id: tag-image
         run: |
           ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
-          IMAGE_URI="$ECR_REGISTRY/your-repo-name:${{ github.event.workflow_run.conclusion == 'success' && fromJson(github.event.workflow_run.outputs.build.outputs).image || '' }}"
-          docker tag ${{ fromJson(github.event.workflow_run.outputs.build.outputs).image }} $IMAGE_URI
-          echo "image=$IMAGE_URI" >> $GITHUB_OUTPUT
+          IMAGE_OUTPUT="${{ github.event.workflow_run.outputs.build.outputs }}"
+          if [[ -n "$IMAGE_OUTPUT" ]]; then
+            IMAGE_JSON=$(echo "$IMAGE_OUTPUT" | jq -r '.')
+            if [[ -n "$IMAGE_JSON" ]]; then
+              IMAGE_URI="$ECR_REGISTRY/your-repo-name:$(echo "$IMAGE_JSON" | jq -r '.image')"
+              docker tag $(echo "$IMAGE_JSON" | jq -r '.image') $IMAGE_URI
+              echo "image=$IMAGE_URI" >> $GITHUB_OUTPUT
+            else
+              echo "Error: Invalid JSON output from build workflow."
+              exit 1
+            fi
+          else
+            echo "Error: No output from build workflow."
+            exit 1
+          fi
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
 
