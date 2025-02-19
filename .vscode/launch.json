@@ -1,0 +1,18 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Remote debug API server",
+            "type": "go",
+            "request": "attach",
+            "mode": "remote",
+            "port": 8000,
+            "host": "127.0.0.1",
+            "substitutePath": [
+                {
+                    "from": "${workspaceFolder}", "to": "/cmd/"
+                }
+            ]
+        }
+    ]
+}

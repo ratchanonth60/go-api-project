@@ -1,0 +1,11 @@
+default_profile = "postgresql"
+
+[profiles.postgresql]
+theme = "gruvbox"
+limit = 10_000
+adapter = "postgres"
+host = "host.docker.internal"
+user = "django"
+password = "PU8F6BW8tbezf4G2"
+dbname = "dev"
+port = 5432
