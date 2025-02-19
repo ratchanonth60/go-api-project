@@ -10,8 +10,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    outputs:
-      image: ${{ steps.build-image.outputs.image }} # ประกาศ outputs ที่ระดับ job
     steps:
       - uses: actions/checkout@v4
 
@@ -27,6 +25,12 @@ jobs:
           docker build -t api . --platform=linux/amd64
           docker tag api $IMAGE_TAG
           IMAGE_URI="$ECR_REGISTRY/${{ vars.REPO_NAME }}:$IMAGE_TAG"
-          echo "image=$IMAGE_URI" >> "$GITHUB_OUTPUT"  # ใช้ GITHUB_OUTPUT
+          echo "$IMAGE_URI" > image_uri.txt
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+
+      - name: Upload image URI
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-uri
+          path: image_uri.txt

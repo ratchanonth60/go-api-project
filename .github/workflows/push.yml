@@ -1,28 +1,25 @@
-name: Push to ECR
-
-on:
-  workflow_run:
-    workflows: ["Build"]
-    types:
-      - completed
-
 jobs:
   push:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    env:
-      AWS_REGION: ap-southeast-2
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-southeast-2
+
+      - name: Download image URI artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: image-uri
+
+      - name: Read image URI
+        id: read-image-uri
+        run: echo "IMAGE_URI=$(cat image_uri.txt)" >> "$GITHUB_ENV"
 
       - name: Login to Amazon ECR
         id: login-ecr
@@ -32,17 +29,14 @@ jobs:
         id: tag-image
         run: |
           ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
-          IMAGE_URI="${{ github.event.workflow_run.outputs.image }}"
           echo "IMAGE_URI: $IMAGE_URI"
           if [[ -n "$IMAGE_URI" ]]; then
-            docker tag $IMAGE_URI $ECR_REGISTRY/${{ vars.REPO_NAME }}:${IMAGE_URI##*:}
-            echo "image=$ECR_REGISTRY/${{ vars.REPO_NAME }}:${IMAGE_URI##*:}" >> "$GITHUB_OUTPUT"
+            docker tag $IMAGE_URI $ECR_REGISTRY/golang/api:${IMAGE_URI##*:}
+            echo "image=$ECR_REGISTRY/golang/api:${IMAGE_URI##*:}" >> "$GITHUB_OUTPUT"
           else
             echo "Error: No output from build workflow."
             exit 1
           fi
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
 
       - name: Push image to Amazon ECR
         run: docker push ${{ steps.tag-image.outputs.image }}
