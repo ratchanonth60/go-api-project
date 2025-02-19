@@ -76,7 +76,11 @@ func (l *AuthHandler) RegisterHandler(c *fiber.Ctx) error {
 	if err := l.service.Create(c.Context(), &user); err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
-	jsonData, err := user.ToEntity().ToJson()
+	toEntity, err := user.ToEntity()
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	jsonData, err := toEntity.ToJson()
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(response.ErrorResponse{
 			Code: fiber.ErrBadGateway.Code,

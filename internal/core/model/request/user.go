@@ -12,12 +12,24 @@ type UserRequest struct {
 	Username  string `json:"username"`
 }
 
-func (r *UserRequest) ToEntity() *entity.User {
+func (r *UserRequest) ToEntity() (*entity.User, error) {
+	if r.Email == "" {
+		return nil, ErrEmailRequired // Use custom error type
+	}
+	if !isValidEmail(r.Email) {
+		return nil, ErrInvalidEmail // Use custom error type
+	}
+	if r.Username == "" {
+		return nil, ErrUsernameRequired
+	}
+	if r.Password == "" {
+		return nil, ErrPasswordRequired
+	}
 	return &entity.User{
 		UserName:  r.Username,
 		FirstName: r.FirstName,
 		LastName:  r.LastName,
 		Email:     r.Email,
 		Password:  r.Password,
-	}
+	}, nil
 }
