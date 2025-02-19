@@ -1,16 +1,30 @@
 services:
+  apiserver:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    image: apiserver:latest
+    platform: linux/amd64
+    container_name: apiserver
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    working_dir: /build/
+    depends_on:
+      - postgres
+
   postgres:
     image: postgres:16-alpine
-    container_name: go-pos_postgres
     hostname: postgres
     ports:
       - 5432:5432
     volumes:
       - postgres:/var/lib/postgresql/data
     env_file:
-        - .env
+      - .env
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -d ${POSTGRES_DB} -U ${POSTGRES_USER}" ]
+      test: ["CMD-SHELL", "pg_isready -d ${POSTGRES_DB} -U ${POSTGRES_USER}"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -23,7 +37,7 @@ services:
     volumes:
       - redis:/data
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 3

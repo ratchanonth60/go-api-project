@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -18,8 +19,19 @@ import (
 )
 
 func main() {
-	if err := config.LoadConfig("conf/app.yaml"); err != nil {
-		log.Fatal("Failed to load config: ", err)
+	configType := flag.String("config", "yaml", "Configuration type (env or yaml)") // Default เป็น yaml
+	flag.Parse()
+
+	var err error
+	if *configType == "env" {
+		config.IsYaml = false
+		err = config.LoadConfig("") // โหลดจาก YAML
+	} else {
+		err = config.LoadConfig("conf/app.yaml")
+	}
+
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
 	}
 	db := config.GormDB{
 		Config: &gorm.Config{},
@@ -37,7 +49,7 @@ func main() {
 		log.Fatal("Failed to create server: ", err)
 	}
 
-	port := fmt.Sprintf(":%d", config.Config.Server.Port)
+	port := fmt.Sprintf(":%s", config.Config.Server.Port)
 	utils.Logger.Printf("Server is running on port %s", port)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

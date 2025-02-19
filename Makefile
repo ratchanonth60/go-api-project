@@ -22,22 +22,8 @@ docker-restart:
 	$(DOCKER_COMPOSE) down && $(DOCKER_COMPOSE) up -d
 
 # Check logs
-docker-logs:
-	$(DOCKER_COMPOSE) logs -f
-
-# Start specific services
-docker-db:
-	$(DOCKER_COMPOSE) up -d postgres
-
-docker-redis:
-	$(DOCKER_COMPOSE) up -d redis
-
-# Stop specific services
-docker-db-down:
-	$(DOCKER_COMPOSE) stop postgres
-
-docker-redis-down:
-	$(DOCKER_COMPOSE) stop redis
+docker-build:
+	$(DOCKER_COMPOSE) up -d --build $(target)
 
 # Run tests
 test:
