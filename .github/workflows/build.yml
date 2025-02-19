@@ -2,7 +2,7 @@ name: Build
 
 on:
   workflow_run:
-    workflows: ["Test"] # ช���่อ workflow test.yml
+    workflows: ["Test"] #workflow test.ymll
     types:
       - completed
 
