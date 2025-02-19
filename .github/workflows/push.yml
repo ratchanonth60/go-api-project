@@ -8,17 +8,23 @@ on:
 
 jobs:
   push:
+    needs: build
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout source code
+        uses: actions/checkout@v4
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-southeast-2
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
 
       - name: Download image URI artifact
         uses: actions/download-artifact@v4
@@ -27,24 +33,9 @@ jobs:
 
       - name: Read image URI
         id: read-image-uri
-        run: echo "IMAGE_URI=$(cat image_uri.txt)" >> "$GITHUB_ENV"
+        run: echo "IMAGE_URI=$(cat image_uri.txt)" >> $GITHUB_ENV
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Tag image
-        id: tag-image
+      - name: Tag and push image to Amazon ECR
         run: |
-          ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
-          echo "IMAGE_URI: $IMAGE_URI"
-          if [[ -n "$IMAGE_URI" ]]; then
-            docker tag $IMAGE_URI $ECR_REGISTRY/golang/api:${IMAGE_URI##*:}
-            echo "image=$ECR_REGISTRY/golang/api:${IMAGE_URI##*:}" >> "$GITHUB_OUTPUT"
-          else
-            echo "Error: No output from build workflow."
-            exit 1
-          fi
-
-      - name: Push image to Amazon ECR
-        run: docker push ${{ steps.tag-image.outputs.image }}
+          docker tag $IMAGE_URI $ECR_REGISTRY/$REPO_NAME:${IMAGE_URI##*:}
+          docker push $ECR_REGISTRY/$REPO_NAME:${IMAGE_URI##*:}

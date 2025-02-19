@@ -7,57 +7,30 @@ on:
       - completed
 
 jobs:
-  push:
+  build:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Set up Go
+        uses: actions/setup-go@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-southeast-2
+          go-version: "1.23"
 
-      - name: Get latest build artifact ID
-        id: get-artifact
+      - name: Build and tag image
+        id: build-image
         run: |
-          ARTIFACT_URL=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/artifacts" | jq -r '.artifacts[] | select(.name=="image-uri") | .archive_download_url' | head -n 1)
+          IMAGE_TAG=$(echo "${GITHUB_SHA::7}")
+          docker build -t api . --platform=linux/amd64
+          docker tag api $IMAGE_TAG
+          IMAGE_URI="$ECR_REGISTRY/${{vars.REPO_NAME}}:$IMAGE_TAG"
 
-          if [[ -z "$ARTIFACT_URL" ]]; then
-            echo "Error: No artifact found with name 'image-uri'"
-            exit 1
-          fi
+          echo "$IMAGE_URI" > image_uri.txt
+          echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
 
-          echo "ARTIFACT_URL=$ARTIFACT_URL" >> "$GITHUB_ENV"
-
-      - name: Download image URI artifact
-        run: |
-          curl -L -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -o image-uri.zip "$ARTIFACT_URL"
-          unzip image-uri.zip
-
-      - name: Read image URI
-        id: read-image-uri
-        run: echo "IMAGE_URI=$(cat image_uri.txt)" >> "$GITHUB_ENV"
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Tag image
-        id: tag-image
-        run: |
-          ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
-          echo "IMAGE_URI: $IMAGE_URI"
-          if [[ -n "$IMAGE_URI" ]]; then
-            docker tag $IMAGE_URI $ECR_REGISTRY/go-api:${IMAGE_URI##*:}
-            echo "image=$ECR_REGISTRY/go-api:${IMAGE_URI##*:}" >> "$GITHUB_OUTPUT"
-          else
-            echo "Error: No output from build workflow."
-            exit 1
-          fi
-
-      - name: Push image to Amazon ECR
-        run: docker push ${{ steps.tag-image.outputs.image }}
+      - name: Upload image URI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-uri
+          path: image_uri.txt
