@@ -25,16 +25,22 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Download image URI artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: image-uri
-
-      - name: Read image URI
-        id: read-image-uri
-        run: echo "IMAGE_URI=$(cat image_uri.txt)" >> $GITHUB_ENV
+      # - name: List available artifacts
+      #   run: ls -R ${{ runner.temp }}/_github_workflow/
+      #
+      # - name: Download image URI artifact
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: image-uri
+      #
+      # - name: Read image URI
+      #   id: read-image-uri
+      #   run: echo "IMAGE_URI=$(cat image_uri.txt)" >> $GITHUB_ENV
 
       - name: Tag and push image to Amazon ECR
         run: |
-          docker tag $IMAGE_URI $ECR_REGISTRY/$REPO_NAME:${IMAGE_URI##*:}
+          IMAGE_TAG=$(echo "${GITHUB_SHA::7}")
+          docker build -t api . --platform=linux/amd64
+          docker tag api $IMAGE_TAG
+          docker tag $IMAGE_TAG $ECR_REGISTRY/$REPO_NAME:${IMAGE_URI##*:}
           docker push $ECR_REGISTRY/$REPO_NAME:${IMAGE_URI##*:}
