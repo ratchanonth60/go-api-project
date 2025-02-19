@@ -1,3 +1,11 @@
+name: Push to ECR
+
+on:
+  workflow_run:
+    workflows: ["Build"]
+    types:
+      - completed
+
 jobs:
   push:
     runs-on: ubuntu-latest
