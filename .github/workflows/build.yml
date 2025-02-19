@@ -1,0 +1,27 @@
+name: Build
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.23"
+
+      - name: Build and tag image
+        id: build-image
+        run: |
+          IMAGE_TAG=$(echo "${GITHUB_SHA::7}")
+          docker build -t api . --platform=linux/amd64
+          docker tag api $IMAGE_TAG
+          echo "image=$IMAGE_TAG" >> $GITHUB_OUTPUT
