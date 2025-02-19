@@ -25,6 +25,7 @@ docker-restart:
 docker-build:
 	$(DOCKER_COMPOSE) up -d --build $(target)
 
+
 # Run tests
 test:
 	go test ./...
