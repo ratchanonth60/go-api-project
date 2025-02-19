@@ -8,7 +8,7 @@ run:
 
 # Build the Go binary
 build:
-	go build -o $(APP_NAME) .
+	go build -o $(APP_NAME) cmd/runner.go
 
 # Run Docker Compose
 docker-up:
