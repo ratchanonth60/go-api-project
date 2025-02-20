@@ -14,6 +14,14 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v4
 
+      - name: Download image URI artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: image-uri
+
+      - name: Read IMAGE_URI
+        run: echo "IMAGE_URI=$(cat image_uri.txt)" >> $GITHUB_ENV
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -25,22 +33,8 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      # - name: List available artifacts
-      #   run: ls -R ${{ runner.temp }}/_github_workflow/
-      #
-      # - name: Download image URI artifact
-      #   uses: actions/download-artifact@v4
-      #   with:
-      #     name: image-uri
-      #
-      # - name: Read image URI
-      #   id: read-image-uri
-      #   run: echo "IMAGE_URI=$(cat image_uri.txt)" >> $GITHUB_ENV
-
-      - name: Tag and push image to Amazon ECR
+      - name: Pull and push image to Amazon ECR
         run: |
-          IMAGE_TAG=$(echo "${GITHUB_SHA::7}")
-          docker build -t api . --platform=linux/amd64
-          docker tag api $IMAGE_TAG
-          docker tag $IMAGE_TAG ${{secrets.ECR_REGISTRY}}/${{vars.REPO_NAME}}:latest
-          docker push ${{secrets.ECR_REGISTRY}}/${{vars.REPO_NAME}}:latest
+          docker pull $IMAGE_URI
+          docker tag $IMAGE_URI ${{ secrets.ECR_REGISTRY }}/${{ vars.REPO_NAME }}:latest
+          docker push ${{ secrets.ECR_REGISTRY }}/${{ vars.REPO_NAME }}:latest
