@@ -34,3 +34,4 @@ jobs:
         with:
           name: image-uri
           path: image_uri.txt
+          retention-days: 7
