@@ -34,3 +34,10 @@ jobs:
           docker tag $ECR_REGISTRY/${{vars.REPO_NAME}} $ECR_REGISTRY/${{vars.REPO_NAME}}:latest 
           docker tag $ECR_REGISTRY/${{vars.REPO_NAME}} $ECR_REGISTRY/${{vars.REPO_NAME}}:$IMAGE_TAG 
           docker push $ECR_REGISTRY/${{vars.REPO_NAME}}
+
+      - name: Update ECS Service
+        run: |
+          aws ecs update-service \
+            --cluster ${{ vars.ECS_CLUSTER_NAME }} \
+            --service ${{ vars.ECS_SERVICE_NAME }} \
+            --force-new-deployment
