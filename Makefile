@@ -17,6 +17,8 @@ docker-up:
 docker-down:
 	$(DOCKER_COMPOSE) down
 
+
+
 # Restart Docker services
 docker-restart:
 	$(DOCKER_COMPOSE) down && $(DOCKER_COMPOSE) up -d
