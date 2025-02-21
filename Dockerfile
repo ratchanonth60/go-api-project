@@ -1,3 +1,4 @@
+# Builder Stage
 FROM golang:1.23-alpine AS builder
 
 LABEL maintainer="By noobmaster"
@@ -16,11 +17,19 @@ COPY . .
 ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
 RUN go build -ldflags="-s -w" -o apiserver cmd/runner.go
 
-FROM scratch
+# Nginx Stage
+FROM nginx:alpine AS nginx
 
-# Copy binary and config files from /build to root folder of scratch container.
-COPY --from=builder ["/build/apiserver",  "/"]
+# Copy the Nginx config file into the container
+COPY nginx.conf /etc/nginx/nginx.conf
 
-# Command to run when starting the container.
-ENTRYPOINT ["/apiserver", "--config=env"]
+# Copy the built Go API server from builder stage
+COPY --from=builder /build/apiserver /usr/local/bin/
+
+# Expose the port for the API and Nginx
+EXPOSE 80
+EXPOSE 8080
+
+# Command to start both the API and Nginx
+CMD ["sh", "-c", "/usr/local/bin/apiserver & nginx -g 'daemon off;'"]
 

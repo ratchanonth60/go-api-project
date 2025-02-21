@@ -1,0 +1,18 @@
+server:
+  port: 8000
+
+database:
+  host: xxx 
+  port: xxx
+  user: xxx 
+  password: xxx 
+  db_name: xxx 
+jwt:
+  signed: "test"
+s3:
+  region: xxx
+  bucket: xxx
+  endpoint: xxx
+credentials:
+  access_key: xxx
+  secret_key: xxx

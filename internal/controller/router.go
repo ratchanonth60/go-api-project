@@ -54,6 +54,10 @@ func New(services *Services) (*Router, error) {
 			user.Post("/", handler.NewUserHandler(services.UserService).CreateUser)
 			user.Get("/:email", handler.NewUserHandler(services.UserService).GetUserByEmail)
 		}
+		file := v1.Group("files")
+		{
+			file.Post("/upload", handler.NewFileHandler().UploadFile)
+		}
 	}
 	return &Router{
 		app,

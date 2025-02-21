@@ -23,7 +23,7 @@ go.work.sum
 
 # env file
 .env
-conf/*
+conf/app.yaml
 
-.harlequin.toml
+.harlequin
 
