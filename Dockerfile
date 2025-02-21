@@ -15,7 +15,7 @@ COPY . .
 
 # Set necessary environment variables needed for our image and build the API server.
 ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
-RUN go build -ldflags="-s -w" -o apiserver cmd/runner.go
+RUN go build -ldflags="-s -w" -o apiserver cmd/runner.go 
 
 # Nginx Stage
 FROM nginx:alpine AS nginx
@@ -31,5 +31,5 @@ EXPOSE 80
 EXPOSE 8080
 
 # Command to start both the API and Nginx
-CMD ["sh", "-c", "/usr/local/bin/apiserver & nginx -g 'daemon off;'"]
+CMD ["sh", "-c", "/usr/local/bin/apiserver --config=env & nginx -g 'daemon off;'"]
 
