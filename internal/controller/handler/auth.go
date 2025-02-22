@@ -32,9 +32,9 @@ func (l *AuthHandler) LoginHandle(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(response.ErrAuth)
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(response.ErrorResponse{
-			Code: http.StatusBadRequest,
-			Msg:  "Password can't hash",
+		return c.Status(http.StatusUnauthorized).JSON(response.ErrorResponse{
+			Code: http.StatusUnauthorized,
+			Msg:  "Password or username is incorrect",
 			Data: err.Error(),
 		})
 	}
