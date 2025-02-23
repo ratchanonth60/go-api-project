@@ -10,11 +10,12 @@ import (
 	"syscall"
 
 	"project-api/internal/controller"
-	"project-api/internal/core/common/utils"
 	"project-api/internal/core/service"
 	"project-api/internal/infra/config"
+	"project-api/internal/infra/logger"
 	"project-api/internal/infra/repository"
 
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -50,25 +51,25 @@ func main() {
 	}
 
 	port := fmt.Sprintf(":%s", config.Config.Server.Port)
-	utils.Logger.Printf("Server is running on port %s", port)
+	logger.Info("Info server running at:", zap.Any("port", port))
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	go func() {
 		if err := app.Serve(port); err != nil {
-			utils.Logger.Fatalf("Failed to start server: %v", err)
+			logger.Fatal("Failed to start server:", zap.Error(err))
 		}
 	}()
 
 	<-ctx.Done()
-	utils.Logger.Println("Shutting down server...")
+	logger.Info("Shutting down server...")
 	defer sqlDB.Close()
 	if err := app.Shutdown(); err != nil {
-		utils.Logger.Fatalf("Server shutdown failed: %v", err)
+		logger.Fatal("Server shutdown failed:", zap.Error(err))
 	}
 
-	utils.Logger.Println("Server gracefully stopped")
+	logger.Info("Server shut down gracefully")
 }
 
 func Init(db *config.GormDB) *controller.Services {

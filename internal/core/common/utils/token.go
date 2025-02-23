@@ -16,6 +16,8 @@ type TokenDetails struct {
 }
 
 func GenerateJWT(email string) (*TokenDetails, error) {
+
+	signed := []byte(config.Config.JWT.Signed)
 	td := &TokenDetails{
 		AccessExp:  jwt.NewNumericDate(time.Now().Add(time.Hour * 24)),
 		RefreshExp: jwt.NewNumericDate(time.Now().Add(time.Hour * 24 * 30)),
@@ -25,7 +27,7 @@ func GenerateJWT(email string) (*TokenDetails, error) {
 		"exp":   td.AccessExp,
 	},
 	)
-	at, err := accessToken.SignedString([]byte(config.Config.JWT.Signed))
+	at, err := accessToken.SignedString(signed)
 	if err != nil {
 		return nil, err
 	}
@@ -34,10 +36,7 @@ func GenerateJWT(email string) (*TokenDetails, error) {
 		"email": email,
 		"exp":   td.RefreshExp,
 	})
-	if err != nil {
-		return nil, err
-	}
-	rt, err := refreshToken.SignedString([]byte(config.Config.JWT.Signed))
+	rt, err := refreshToken.SignedString(signed)
 	if err != nil {
 		return nil, err
 	}

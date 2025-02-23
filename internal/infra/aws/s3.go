@@ -9,19 +9,24 @@ import (
 	"time"
 
 	"github.com/gofiber/storage/s3/v2"
+	"project-api/internal/core/port/repository"
 )
+
+var DefaultExpiry time.Duration = 0
 
 type StorageWrapper struct {
 	*s3.Storage
 }
 
-func New(config s3.Config) *StorageWrapper {
+func New(config s3.Config) repository.IS3Repository {
 	return &StorageWrapper{
 		s3.New(config),
 	}
 }
-func (s *StorageWrapper) Upload(file *multipart.FileHeader) (string, error) {
+func (s *StorageWrapper) UploadFile(file *multipart.FileHeader, expir *time.Duration) (string, error) {
 	// เปิดไฟล์
+	config := config.Config.GetS3Config()
+
 	src, err := file.Open()
 	if err != nil {
 		return "", fmt.Errorf("failed to open file: %v", err)
@@ -36,22 +41,25 @@ func (s *StorageWrapper) Upload(file *multipart.FileHeader) (string, error) {
 	data := buf.Bytes()
 
 	// สร้าง key สำหรับจัดเก็บไฟล์ใน S3
-	key := fmt.Sprintf("uploads/%d_%s", time.Now().Unix(), file.Filename)
+	key := fmt.Sprintf("file/%d_%s", time.Now().Unix(), file.Filename)
 
 	// อัปโหลดไฟล์ไปยัง S3
-	err = s.Set(key, data, 0) // TTL = 0 (ไฟล์จะไม่หมดอายุ)
+	if expir == nil {
+		expir = &DefaultExpiry
+	}
+	err = s.Set(key, data, *expir) // TTL = 0 (ไฟล์จะไม่หมดอายุ)
 	if err != nil {
 		return "", fmt.Errorf("failed to upload file to S3: %v", err)
 	}
 
-	config := config.S3.GetS3Config()
 	// URL ของไฟล์ที่อัปโหลด
 	fileURL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", config.Bucket, config.Region, key)
+
 	return fileURL, nil
 }
 
 // Download ดึงไฟล์จาก S3
-func (s *StorageWrapper) Download(key string) ([]byte, error) {
+func (s *StorageWrapper) DeleteFile(key string) ([]byte, error) {
 	data, err := s.Get(key)
 	if err != nil {
 		return nil, fmt.Errorf("failed to download file from S3: %v", err)

@@ -17,8 +17,8 @@ type MockUserRepository struct {
 	mock.Mock
 }
 
-func (m *MockUserRepository) Create(ctx context.Context, user *entity.User) error {
-	args := m.Called(ctx, user)
+func (m *MockUserRepository) Create(ctx context.Context, entity interface{}) error {
+	args := m.Called(ctx, entity)
 	return args.Error(0)
 }
 

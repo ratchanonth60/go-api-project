@@ -25,7 +25,7 @@ func New(services *Services) (*Router, error) {
 
 	}
 	app.Use(jwtware.New(jwtware.Config{
-		SigningKey: jwtware.SigningKey{Key: config.Config.JWT.Signed},
+		SigningKey: jwtware.SigningKey{Key: []byte(config.Config.JWT.Signed)},
 		Filter: func(c *fiber.Ctx) bool {
 			excludedRoutes := []string{
 				"/api/v1/auth/login",
@@ -42,7 +42,8 @@ func New(services *Services) (*Router, error) {
 		},
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "Missing or malformed JWT",
+				"error": err.Error(),
+				"code":  fiber.StatusUnauthorized,
 			})
 		},
 	}))

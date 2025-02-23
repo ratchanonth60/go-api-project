@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 
-	"project-api/internal/core/entity"
 	"project-api/internal/core/port/repository"
 
 	"gorm.io/gorm"
@@ -19,6 +18,6 @@ func NewAddressRepository(db *gorm.DB) repository.IAddressRepository {
 	}
 }
 
-func (a *AddressRepository) Create(ctx context.Context, address *entity.Address) error {
-	return a.db.WithContext(ctx).Create(&address).Error
+func (a *AddressRepository) Create(ctx context.Context, entity interface{}) error {
+	return a.db.WithContext(ctx).Create(entity).Error
 }

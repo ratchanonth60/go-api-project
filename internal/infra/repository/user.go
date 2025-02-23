@@ -19,8 +19,8 @@ func NewUserRepository(db *gorm.DB) repository.IUserRepository {
 	}
 }
 
-func (u *UserRepository) Create(ctx context.Context, user *entity.User) error {
-	return u.db.WithContext(ctx).Create(&user).Error
+func (u *UserRepository) Create(ctx context.Context, entity interface{}) error {
+	return u.db.WithContext(ctx).Create(entity).Error
 }
 
 func (u *UserRepository) GetUserByEmail(ctx context.Context, email string) (*entity.User, error) {
