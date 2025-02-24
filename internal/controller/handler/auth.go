@@ -27,7 +27,7 @@ func (l *AuthHandler) LoginHandle(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(http.StatusBadRequest).JSON(response.ErrParser)
 	}
-	user, err := l.service.GetUserByUserName(c.Context(), req.UserName)
+	user, err := l.service.GetUserByName(c.Context(), req.UserName)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(response.ErrAuth)
 	}
@@ -38,7 +38,7 @@ func (l *AuthHandler) LoginHandle(c *fiber.Ctx) error {
 			Data: err.Error(),
 		})
 	}
-	token, err := utils.GenerateJWT(user.Email)
+	token, err := utils.GenerateJWT(user)
 	if err != nil {
 		return err
 	}
@@ -73,7 +73,11 @@ func (l *AuthHandler) RegisterHandler(c *fiber.Ctx) error {
 		Email:     req.Email,
 		Password:  string(hashed),
 	}
-	if err := l.service.Create(c.Context(), &user); err != nil {
+	userEntity, err := user.ToEntity()
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	if err := l.service.Create(c.Context(), userEntity); err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 	toEntity, err := user.ToEntity()

@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"project-api/internal/core/entity"
-	"project-api/internal/core/model/request"
 	In "project-api/internal/core/port/repository"
 )
 
@@ -19,19 +18,21 @@ func NewUserService(repo In.IUserRepository) *UserService {
 	}
 }
 
-func (u *UserService) Create(ctx context.Context, user *request.UserRequest) error {
-	userEntity, err := user.ToEntity()
-	if err != nil {
-		return err
-	}
-	if userEntity == nil {
-		return ErrCreateUser
-	}
-	if err := u.repo.Create(ctx, userEntity); err != nil {
+func (u *UserService) Create(ctx context.Context, user *entity.User) error {
+
+	if err := u.repo.Create(ctx, user); err != nil {
 		return wrapError(ErrCreateUser, err) // Wrap repository errors
 	}
 
 	return nil
+}
+
+func (u *UserService) GetById(ctx context.Context, id uint) (*entity.User, error) {
+	user, err := u.repo.GetById(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
 }
 
 func (u *UserService) GetUserByEmail(ctx context.Context, email string) (*entity.User, error) {
@@ -42,7 +43,7 @@ func (u *UserService) GetUserByEmail(ctx context.Context, email string) (*entity
 	return user, nil
 }
 
-func (u *UserService) GetUserByUserName(ctx context.Context, username string) (*entity.User, error) {
+func (u *UserService) GetUserByName(ctx context.Context, username string) (*entity.User, error) {
 	user, err := u.repo.GetUserByName(ctx, username)
 	if err != nil {
 		return nil, wrapError(errors.New("failed to get user by username"), err) // Wrap

@@ -3,9 +3,11 @@ package service
 import (
 	"mime/multipart"
 	"time"
+
+	"github.com/gofiber/fiber/v2"
 )
 
 type IS3Service interface {
-	UploadFile(file *multipart.FileHeader, expir *time.Duration) (string, error)
-	DeleteFile(key string) ([]byte, error)
+	UploadFile(c *fiber.Ctx, file *multipart.FileHeader, expir *time.Duration) (string, error)
+	DeleteFile(c *fiber.Ctx, key string) ([]byte, error)
 }

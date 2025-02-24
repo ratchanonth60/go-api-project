@@ -2,6 +2,7 @@ package controller
 
 import (
 	handler "project-api/internal/controller/handler"
+	"project-api/internal/core/middleware"
 	In "project-api/internal/core/port/service"
 	"project-api/internal/infra/config"
 
@@ -14,6 +15,7 @@ type Router struct {
 }
 type Services struct {
 	UserService In.IUserService
+	FileService In.IS3Service
 }
 
 func New(services *Services) (*Router, error) {
@@ -48,7 +50,7 @@ func New(services *Services) (*Router, error) {
 		},
 	}))
 
-	v1 := app.Group("/api/v1")
+	v1 := app.Group("/api/v1", middleware.JWTAuthMiddleware)
 	{
 		user := v1.Group("users")
 		{
@@ -57,7 +59,7 @@ func New(services *Services) (*Router, error) {
 		}
 		file := v1.Group("files")
 		{
-			file.Post("/upload", handler.NewFileHandler().UploadFile)
+			file.Post("/upload", handler.NewFileHandler(services.UserService, services.FileService).UploadFile)
 		}
 	}
 	return &Router{

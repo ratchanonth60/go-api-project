@@ -11,10 +11,12 @@ import (
 
 	"project-api/internal/controller"
 	"project-api/internal/core/service"
+	"project-api/internal/infra/aws"
 	"project-api/internal/infra/config"
 	"project-api/internal/infra/logger"
 	"project-api/internal/infra/repository"
 
+	"github.com/gofiber/storage/s3/v2"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -73,9 +75,20 @@ func main() {
 }
 
 func Init(db *config.GormDB) *controller.Services {
+	s3Congfig := config.Config.GetS3Config()
+	credential := config.Config.GetCredentials()
+	awsConfig := s3.Config{
+		Bucket:      s3Congfig.Bucket,
+		Region:      s3Congfig.Region,
+		Endpoint:    s3Congfig.Endpoint,
+		Credentials: credential,
+	}
 	userRepository := repository.NewUserRepository(db.DB)
 	userService := service.NewUserService(userRepository)
+	aws3Repo := aws.New(awsConfig)
+	fileService := service.NewS3Service(userService, aws3Repo)
 	return &controller.Services{
 		UserService: userService,
+		FileService: fileService,
 	}
 }

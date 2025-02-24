@@ -26,7 +26,11 @@ func (u *UserHandler) CreateUser(ctx *fiber.Ctx) error {
 	if err := ctx.BodyParser(user); err != nil {
 		return ctx.Status(http.StatusBadRequest).JSON(response.ErrParser)
 	}
-	if err := u.service.Create(ctx.Context(), user); err != nil {
+	userEntity, err := user.ToEntity()
+	if err != nil {
+		return ctx.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	if err := u.service.Create(ctx.Context(), userEntity); err != nil {
 		return ctx.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 	return ctx.Status(http.StatusCreated).JSON(user)

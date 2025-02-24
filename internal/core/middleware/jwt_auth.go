@@ -6,17 +6,13 @@ import (
 	"net/http"
 	"strings"
 
+	"project-api/internal/core/common/utils"
 	"project-api/internal/infra/config"
 	"project-api/internal/infra/logger"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v4"
 	"go.uber.org/zap"
-)
-
-type contextKey string
-
-const (
-	userContextKey contextKey = "user"
 )
 
 func respondError(w http.ResponseWriter, code int, message string) {
@@ -24,41 +20,34 @@ func respondError(w http.ResponseWriter, code int, message string) {
 	json.NewEncoder(w).Encode(map[string]string{"error": message})
 }
 
-func JWTAuthMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Get the authorization header
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			logger.Error("Missing authorization header")
-			respondError(w, http.StatusUnauthorized, "Missing authorization header")
-			return
-		}
-		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			logger.Error("Invalid authorization header format")
-			respondError(w, http.StatusUnauthorized, "Invalid authorization header format")
-			return
-		}
-		tokenString := parts[1]
-		token, err := jwt.ParseWithClaims(tokenString, &jwt.StandardClaims{}, func(t *jwt.Token) (interface{}, error) {
-			return []byte(config.Config.JWT.Signed), nil
-		})
-		if err != nil || !token.Valid {
-			logger.Error("invalid or expired token", zap.Error(err))
-			respondError(w, http.StatusUnauthorized, "invalid or expired token")
-			return
-		}
-		claims, ok := token.Claims.(*jwt.StandardClaims)
-		if !ok {
-			logger.Error("invalid token claims")
-			respondError(w, http.StatusUnauthorized, "invalid token claims")
-		}
-		ctx := context.WithValue(r.Context(), userContextKey, claims.Subject)
-		next.ServeHTTP(w, r.WithContext(ctx))
+func JWTAuthMiddleware(c *fiber.Ctx) error { // เปลี่ยน signature เป็น Fiber's Middleware Handler
+	// Get the authorization header
+	authHeader := c.Get("Authorization") // ใช้ c.Get() แทน r.Header.Get()
+	if authHeader == "" {
+		logger.Warn("Missing authorization header", zap.String("path", c.Path()))       // Log path context
+		return fiber.NewError(fiber.StatusUnauthorized, "Missing authorization header") // ใช้ fiber.NewError เพื่อ return error
+	}
+	parts := strings.Split(authHeader, " ")
+	if len(parts) != 2 || parts[0] != "Bearer" {
+		logger.Warn("Invalid authorization header format", zap.String("authHeader", authHeader), zap.String("path", c.Path())) // Log authHeader context
+		return fiber.NewError(fiber.StatusUnauthorized, "Invalid authorization header format")                                 // ใช้ fiber.NewError เพื่อ return error
+	}
+	tokenString := parts[1]
+	token, err := jwt.ParseWithClaims(tokenString, &utils.UserClaims{}, func(t *jwt.Token) (interface{}, error) {
+		return []byte(config.Config.JWT.Signed), nil
 	})
-}
+	if err != nil || !token.Valid {
+		logger.Warn("invalid or expired token", zap.Error(err), zap.String("token", tokenString), zap.String("path", c.Path())) // Log token context
+		return fiber.NewError(fiber.StatusUnauthorized, "Invalid or expired token")                                             // ใช้ fiber.NewError เพื่อ return error
+	}
+	claims, ok := token.Claims.(*utils.UserClaims)
+	if !ok {
+		logger.Error("invalid token claims", zap.String("token", tokenString), zap.String("path", c.Path())) // Log token and path context
+		return fiber.NewError(fiber.StatusUnauthorized, "Invalid token claims")                              // ใช้ fiber.NewError เพื่อ return error
+	}
+	// ใช้ c.Context() เพื่อเข้าถึง Go Context ของ Fiber
+	ctx := context.WithValue(c.UserContext(), utils.GetUserContextKey(), claims)
+	c.SetUserContext(ctx) // Set Go Context ลง Fiber Context
 
-func GetUserIDFromContext(ctx context.Context) (string, bool) {
-	v, ok := ctx.Value(userContextKey).(string)
-	return v, ok
+	return c.Next()
 }

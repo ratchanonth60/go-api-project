@@ -1,45 +1,31 @@
 package controller
 
 import (
-	"project-api/internal/infra/aws"
-	"project-api/internal/infra/config"
 	"time"
 
 	In "project-api/internal/core/port/service"
 
-	"project-api/internal/core/service"
-
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/storage/s3/v2"
 )
 
 type FileHeader struct {
-	service In.IS3Service
+	S3service   In.IS3Service
+	UserService In.IUserService
 }
 
-func NewFileHandler() *FileHeader {
-	s3Congfig := config.Config.GetS3Config()
-	credential := config.Config.GetCredentials()
-	repo := aws.New(s3.Config{
-		Bucket:      s3Congfig.Bucket,
-		Region:      s3Congfig.Region,
-		Endpoint:    s3Congfig.Endpoint,
-		Credentials: credential,
-	})
-	return &FileHeader{
-		service: service.NewS3Service(
-			service.S3Service{S3: repo}),
-	}
+func NewFileHandler(userService In.IUserService, s3Service In.IS3Service) *FileHeader {
+	return &FileHeader{UserService: userService, S3service: s3Service}
 }
 
 func (f *FileHeader) UploadFile(c *fiber.Ctx) error {
 	var expirt time.Duration = 0
+
 	file, err := c.FormFile("file")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Failed to get file", "error": err.Error()})
 	}
 
-	fileURL, err := f.service.UploadFile(file, &expirt)
+	fileURL, err := f.S3service.UploadFile(c, file, &expirt)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Failed to upload", "error": err.Error()})
 	}
@@ -49,7 +35,8 @@ func (f *FileHeader) UploadFile(c *fiber.Ctx) error {
 
 func (f *FileHeader) DeleteFile(c *fiber.Ctx) error {
 	fileName := c.Params("fileName")
-	fileURL, err := f.service.DeleteFile(fileName)
+
+	fileURL, err := f.S3service.DeleteFile(c, fileName)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Failed to download", "error": err.Error()})
 	}
