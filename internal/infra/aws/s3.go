@@ -23,6 +23,7 @@ func New(config s3.Config) repository.IS3Repository {
 		s3.New(config),
 	}
 }
+
 func (s *StorageWrapper) UploadFile(file *multipart.FileHeader, expir *time.Duration) (string, error) {
 	// เปิดไฟล์
 	config := config.Config.GetS3Config()
@@ -41,7 +42,7 @@ func (s *StorageWrapper) UploadFile(file *multipart.FileHeader, expir *time.Dura
 	data := buf.Bytes()
 
 	// สร้าง key สำหรับจัดเก็บไฟล์ใน S3
-	key := fmt.Sprintf("file/%d_%s", time.Now().Unix(), file.Filename)
+	key := fmt.Sprintf("file/%s/%s", file.Header.Get("Content-Type"), file.Filename)
 
 	// อัปโหลดไฟล์ไปยัง S3
 	if expir == nil {
@@ -59,19 +60,24 @@ func (s *StorageWrapper) UploadFile(file *multipart.FileHeader, expir *time.Dura
 }
 
 // Download ดึงไฟล์จาก S3
-func (s *StorageWrapper) DeleteFile(key string) ([]byte, error) {
+func (s *StorageWrapper) DeleteFile(key string) error {
+	err := s.Delete(key)
+	if err != nil {
+		return fmt.Errorf("failed to download file from S3: %v", err)
+	}
+	return nil
+}
+
+func (s *StorageWrapper) DownloadFile(key string) ([]byte, error) {
+	// Get file from S3
 	data, err := s.Get(key)
 	if err != nil {
 		return nil, fmt.Errorf("failed to download file from S3: %v", err)
 	}
-	return data, nil
-}
 
-// Delete ลบไฟล์จาก S3
-func (s *StorageWrapper) Delete(key string) error {
-	err := s.Storage.Delete(key)
-	if err != nil {
-		return fmt.Errorf("failed to delete file from S3: %v", err)
+	if data == nil {
+		return nil, fmt.Errorf("file not found in S3")
 	}
-	return nil
+
+	return data, nil
 }

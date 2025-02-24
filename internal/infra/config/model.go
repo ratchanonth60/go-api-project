@@ -2,14 +2,15 @@ package config
 
 type AppConfig struct {
 	Server struct {
-		Port string `yaml:"port" env:"PORT"`
+		Port string `yaml:"port" env:"PORT" envDefault:"8000"`
 	} `yaml:"server"`
 	Database struct {
 		Host     string `yaml:"host" env:"POSTGRES_HOST"`
-		Port     string `yaml:"port" env:"POSTGRES_PORT"`
+		Port     string `yaml:"port" env:"POSTGRES_PORT" envDefault:"5432"`
 		User     string `yaml:"user" env:"POSTGRES_USER"`
 		Password string `yaml:"password" env:"POSTGRES_PASSWORD"`
 		DBName   string `yaml:"db_name" env:"POSTGRES_DB"`
+		SSLMode  string `yaml:"sslmode" env:"POSTGRES_SSLMODE" envDefault:"require"`
 	} `yaml:"database"`
 	Cache struct {
 		Address     string `yaml:"address" env:"REDIS_HOST"`

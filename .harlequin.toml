@@ -1,5 +1,15 @@
 default_profile = "postgresql"
 
+[profiles.local-postgres]
+theme = "gruvbox"
+limit = 10_000
+adapter = "postgres"
+host = "host.docker.internal"
+user = "postgres"
+password = "Vr0GCDgzdleAc3ljwKct"
+dbname = "dev"
+port = 5432
+
 [profiles.postgresql]
 theme = "gruvbox"
 limit = 10_000

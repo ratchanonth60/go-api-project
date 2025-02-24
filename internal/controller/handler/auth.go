@@ -27,6 +27,13 @@ func (l *AuthHandler) LoginHandle(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(http.StatusBadRequest).JSON(response.ErrParser)
 	}
+	if err := req.Validate(); err != nil {
+		return c.Status(http.StatusBadRequest).JSON(response.ErrorResponse{
+			Code: http.StatusBadRequest,
+			Msg:  "Bad request, please check the request body",
+			Data: err.Error(),
+		})
+	}
 	user, err := l.service.GetUserByName(c.Context(), req.UserName)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(response.ErrAuth)
@@ -56,6 +63,13 @@ func (l *AuthHandler) RegisterHandler(c *fiber.Ctx) error {
 		return c.Status(http.StatusBadRequest).JSON(response.ErrorResponse{
 			Code: http.StatusBadRequest,
 			Msg:  "bad request, please check the request body",
+			Data: err.Error(),
+		})
+	}
+	if err := req.Validate(); err != nil {
+		return c.Status(http.StatusBadRequest).JSON(response.ErrorResponse{
+			Code: http.StatusBadRequest,
+			Msg:  "Bad request, please check the request body",
 			Data: err.Error(),
 		})
 	}

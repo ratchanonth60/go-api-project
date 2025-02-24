@@ -17,8 +17,8 @@ type GormDB struct {
 func (g *GormDB) Connect() error {
 	c := Config.Database
 
-	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=require",
-		c.Host, c.Port, c.User, c.Password, c.DBName)
+	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		c.Host, c.Port, c.User, c.Password, c.DBName, c.SSLMode)
 	db, err := gorm.Open(postgres.Open(dsn), g.Config)
 	if err != nil {
 		return err
