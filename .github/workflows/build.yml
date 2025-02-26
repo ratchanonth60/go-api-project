@@ -22,7 +22,7 @@ jobs:
         id: build-image
         run: |
           IMAGE_TAG=$(echo "${GITHUB_SHA::7}")
-          docker build -t api . --platform=linux/amd64
+          docker build -t api -f Dockerfile.server --platform=linux/amd64
           docker tag api $IMAGE_TAG
           IMAGE_URI="$ECR_REGISTRY/${{vars.REPO_NAME}}:$IMAGE_TAG"
 
