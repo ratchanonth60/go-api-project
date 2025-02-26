@@ -25,16 +25,26 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Tag and push image to Amazon ECR
+      - name: Build, Tag, and Push Server Image to Amazon ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/${{vars.REPO_NAME}}  . --platform=linux/amd64
-          docker tag $ECR_REGISTRY/${{vars.REPO_NAME}} $ECR_REGISTRY/${{vars.REPO_NAME}}:latest 
-          docker tag $ECR_REGISTRY/${{vars.REPO_NAME}} $ECR_REGISTRY/${{vars.REPO_NAME}}:$IMAGE_TAG 
-          docker push $ECR_REGISTRY/${{vars.REPO_NAME}}
+          docker build -t $ECR_REGISTRY/${{vars.REPO_API}}  -f Dockerfile.server  --platform=linux/amd64
+          docker tag $ECR_REGISTRY/${{vars.REPO_API}} $ECR_REGISTRY/${{vars.REPO_API}}:latest 
+          docker tag $ECR_REGISTRY/${{vars.REPO_API}} $ECR_REGISTRY/${{vars.REPO_API}}:$IMAGE_TAG 
+          docker push $ECR_REGISTRY/${{vars.REPO_API}}
 
+      - name: Build, Tag, and Push Worker Image to Amazon ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          # Build และ push Worker image
+          docker build -t $ECR_REGISTRY/${{vars.REPO_WORKER}} -f Dockerfile.worker  --platform=linux/amd64
+          docker tag $ECR_REGISTRY/${{vars.REPO_WORKER}} $ECR_REGISTRY/${{vars.REPO_WORKER}}:latest 
+          docker tag $ECR_REGISTRY/${{vars.REPO_WORKER}} $ECR_REGISTRY/${{vars.REPO_WORKER}}:$IMAGE_TAG 
+          docker push $ECR_REGISTRY/${{vars.REPO_WORKER}}
       - name: Update ECS Service
         run: |
           aws ecs update-service \

@@ -16,7 +16,9 @@ import (
 	"project-api/internal/infra/config"
 	"project-api/internal/infra/logger"
 	"project-api/internal/infra/repository"
+	"project-api/internal/task"
 
+	"github.com/RichardKnop/machinery/v2"
 	"github.com/gofiber/storage/s3/v2"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -92,8 +94,12 @@ func initializeApp() (*Application, error) {
 		return nil, fmt.Errorf("failed to get SQL DB: %w", err)
 	}
 
+	machineryServer, err := task.NewMachineryServer()
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize Machinery server: %w", err)
+	}
 	// Initialize services
-	services := initializeServices(db)
+	services := initializeServices(db, machineryServer)
 
 	// Create router
 	router, err := controller.New(services)
@@ -110,7 +116,7 @@ func initializeApp() (*Application, error) {
 	}, nil
 }
 
-func initializeServices(db *config.GormDB) *controller.Services {
+func initializeServices(db *config.GormDB, machineryServer *machinery.Server) *controller.Services {
 	s3Config := config.Config.GetS3Config()
 	credential := config.Config.GetCredentials()
 
@@ -130,6 +136,7 @@ func initializeServices(db *config.GormDB) *controller.Services {
 	return &controller.Services{
 		UserService: userService,
 		FileService: fileService,
+		Server:      machineryServer,
 	}
 }
 

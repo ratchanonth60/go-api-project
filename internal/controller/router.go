@@ -8,7 +8,9 @@ import (
 	In "project-api/internal/core/port/service"
 	"project-api/internal/infra/config"
 	"project-api/internal/infra/logger"
+	"strings"
 
+	"github.com/RichardKnop/machinery/v2"
 	jwtware "github.com/gofiber/contrib/jwt"
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
@@ -24,6 +26,7 @@ type RouterConfig struct {
 type Services struct {
 	UserService In.IUserService
 	FileService In.IS3Service
+	Server      *machinery.Server
 }
 
 // Router encapsulates the Fiber app and its configuration
@@ -55,7 +58,7 @@ func (r *Router) setupRoutes(services *Services) {
 
 	// Public routes (no authentication)
 	auth := r.app.Group("/api/v1/auth")
-	r.setupAuthRoutes(auth, services.UserService)
+	r.setupAuthRoutes(auth, services.UserService, services.Server)
 
 	// Protected routes
 	v1 := r.app.Group("/api/v1", middleware.JWTAuthMiddleware)
@@ -74,10 +77,11 @@ func (r *Router) setupJWTMiddleware() {
 }
 
 // setupAuthRoutes configures authentication routes
-func (r *Router) setupAuthRoutes(group fiber.Router, userService In.IUserService) {
-	authHandler := controller.NewAuthHandler(userService)
+func (r *Router) setupAuthRoutes(group fiber.Router, userService In.IUserService, machineryServer *machinery.Server) {
+	authHandler := controller.NewAuthHandler(userService, machineryServer)
 	group.Post("/login", authHandler.LoginHandle)
 	group.Post("/register", authHandler.RegisterHandler)
+	group.Get("/confirm/:token", authHandler.ConfirmEmailHandler)
 }
 
 // setupProtectedRoutes configures authenticated routes
@@ -109,9 +113,10 @@ func isExcludedRoute(path string) bool {
 		"/api/v1/auth/login",
 		"/api/v1/auth/register",
 		"/api/v1/auth/logout",
+		"/api/v1/auth/confirm",
 	}
 	for _, route := range excludedRoutes {
-		if path == route {
+		if strings.HasPrefix(path, route) {
 			return true
 		}
 	}

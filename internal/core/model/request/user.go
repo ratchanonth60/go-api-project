@@ -5,11 +5,13 @@ import (
 )
 
 type UserRequest struct {
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-	Email     string `json:"email"`
-	Password  string `json:"password"`
-	Username  string `json:"username"`
+	FirstName    string `json:"first_name"`
+	LastName     string `json:"last_name"`
+	Email        string `json:"email"`
+	Password     string `json:"password"`
+	Username     string `json:"username"`
+	IsActive     bool   `json:"is_active"`
+	ConfirmToken string `json:"confirm_token"`
 }
 
 func (r *UserRequest) ToEntity() (*entity.User, error) {
@@ -25,11 +27,14 @@ func (r *UserRequest) ToEntity() (*entity.User, error) {
 	if r.Password == "" {
 		return nil, ErrPasswordRequired
 	}
+
 	return &entity.User{
-		UserName:  r.Username,
-		FirstName: r.FirstName,
-		LastName:  r.LastName,
-		Email:     r.Email,
-		Password:  r.Password,
+		UserName:     r.Username,
+		FirstName:    r.FirstName,
+		LastName:     r.LastName,
+		Email:        r.Email,
+		Password:     r.Password,
+		IsActive:     r.IsActive,
+		ConfirmToken: r.ConfirmToken,
 	}, nil
 }

@@ -29,3 +29,7 @@ func (a *AddressRepository) GetById(ctx context.Context, id uint) (*entity.Addre
 func (a *AddressRepository) Create(ctx context.Context, entity *entity.Address) error {
 	return a.db.WithContext(ctx).Create(entity).Error
 }
+
+func (a *AddressRepository) Update(ctx context.Context, entity *entity.Address) error {
+	return a.db.WithContext(ctx).Save(entity).Error
+}

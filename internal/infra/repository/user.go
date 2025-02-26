@@ -5,7 +5,9 @@ import (
 
 	"project-api/internal/core/entity"
 	"project-api/internal/core/port/repository"
+	"project-api/internal/infra/logger"
 
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -41,8 +43,26 @@ func (u *UserRepository) GetUserByEmail(ctx context.Context, email string) (*ent
 
 func (u *UserRepository) GetUserByName(ctx context.Context, name string) (*entity.User, error) {
 	user := &entity.User{}
-	if err := u.db.WithContext(ctx).Where("user_name = ?", name).First(&user).Error; err != nil {
+	if err := u.db.WithContext(ctx).Where("user_name = ? AND is_active = true", name).First(&user).Error; err != nil {
 		return nil, err
 	}
 	return user, nil
+}
+
+func (u *UserRepository) FindByToken(ctx context.Context, token string) (*entity.User, error) {
+	var user entity.User
+	err := u.db.WithContext(ctx).Where("confirm_token = ?", token).First(&user).Error
+	if err != nil {
+		logger.Error("Failed to find user by token", zap.String("token", token), zap.Error(err))
+		return nil, err
+	}
+	logger.Info("User found by token",
+		zap.String("token", token),
+		zap.String("email", user.Email),
+		zap.Bool("is_verified", user.IsActive))
+	return &user, nil
+}
+
+func (u *UserRepository) Update(ctx context.Context, entity *entity.User) error {
+	return u.db.WithContext(ctx).Save(entity).Error
 }

@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Confirm Your Email</title>
+</head>
+
+<body>
+  <h1>Welcome to Our App!</h1>
+  <p>Hello {{.Name}},</p>
+  <p>Please confirm your email by clicking the link below:</p>
+  <a href="{{.Host}}/api/v1/auth/confirm/{{.Token}}">Confirm Email</a>
+  <p>If you didn’t register, please ignore this email.</p>
+</body>
+
+</html>
