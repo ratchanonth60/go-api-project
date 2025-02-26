@@ -30,7 +30,7 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/${{vars.REPO_API}}  -f Dockerfile.server  --platform=linux/amd64
+          docker build -t $ECR_REGISTRY/${{vars.REPO_API}}  -f Dockerfile.server . --platform=linux/amd64
           docker tag $ECR_REGISTRY/${{vars.REPO_API}} $ECR_REGISTRY/${{vars.REPO_API}}:latest 
           docker tag $ECR_REGISTRY/${{vars.REPO_API}} $ECR_REGISTRY/${{vars.REPO_API}}:$IMAGE_TAG 
           docker push $ECR_REGISTRY/${{vars.REPO_API}}
@@ -41,7 +41,7 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           # Build และ push Worker image
-          docker build -t $ECR_REGISTRY/${{vars.REPO_WORKER}} -f Dockerfile.worker  --platform=linux/amd64
+          docker build -t $ECR_REGISTRY/${{vars.REPO_WORKER}} -f Dockerfile.worker . --platform=linux/amd64
           docker tag $ECR_REGISTRY/${{vars.REPO_WORKER}} $ECR_REGISTRY/${{vars.REPO_WORKER}}:latest 
           docker tag $ECR_REGISTRY/${{vars.REPO_WORKER}} $ECR_REGISTRY/${{vars.REPO_WORKER}}:$IMAGE_TAG 
           docker push $ECR_REGISTRY/${{vars.REPO_WORKER}}
