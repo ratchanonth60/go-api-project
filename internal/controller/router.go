@@ -56,6 +56,11 @@ func (r *Router) setupRoutes(services *Services) {
 	// Configure JWT middleware
 	r.setupJWTMiddleware()
 
+	// health check
+	r.app.Get("/", func(c *fiber.Ctx) error {
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "Welcome to the API"})
+
+	})
 	// Public routes (no authentication)
 	auth := r.app.Group("/api/v1/auth")
 	r.setupAuthRoutes(auth, services.UserService, services.Server)
@@ -110,6 +115,7 @@ func (r *Router) setupProtectedRoutes(group fiber.Router, services *Services) {
 // isExcludedRoute checks if a path should bypass JWT authentication
 func isExcludedRoute(path string) bool {
 	excludedRoutes := []string{
+		"/",
 		"/api/v1/auth/login",
 		"/api/v1/auth/register",
 		"/api/v1/auth/logout",

@@ -46,10 +46,4 @@ type AppConfig struct {
 		SecretKey string `yaml:"secret_key_sqs" env:"SECRET_SQS"`
 		Endpoint  string `yaml:"endpoint_sqs" env:"ENDPOINT_SQS"`
 	} `yaml:"sqs"`
-	GmailSMTP struct {
-		From     string `yaml:"from" env:"EMAIL_FROM"`
-		Password string `yaml:"password" env:"password_gmail_smtp"`
-		SMTPHost string `yaml:"smtp_host" env:"host_smtp"`
-		SMTPPort string `yaml:"smtp_port" env:"port_smtp"`
-	} `yaml:"gmail"`
 }
