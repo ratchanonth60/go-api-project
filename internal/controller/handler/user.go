@@ -24,23 +24,37 @@ func NewUserHandler(service In.IUserService) *UserHandler {
 func (u *UserHandler) CreateUser(ctx *fiber.Ctx) error {
 	user := &request.UserRequest{}
 	if err := ctx.BodyParser(user); err != nil {
-		return ctx.Status(http.StatusBadRequest).JSON(response.ErrParser)
+		return ctx.Status(http.StatusOK).JSON(response.ErrParser)
 	}
 	userEntity, err := user.ToEntity()
 	if err != nil {
-		return ctx.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return ctx.Status(http.StatusOK).JSON(response.ErrorResponse{
+			Code: fiber.StatusBadRequest,
+			Msg:  "Error convert to entity",
+			Data: err.Error(),
+		})
 	}
 	if err := u.service.Create(ctx.Context(), userEntity); err != nil {
-		return ctx.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return ctx.Status(http.StatusOK).JSON(response.ErrorResponse{
+			Code: fiber.StatusInternalServerError,
+			Msg:  "Error to create user",
+			Data: err.Error(),
+		})
 	}
-	return ctx.Status(http.StatusCreated).JSON(user)
+	return ctx.Status(http.StatusOK).JSON(response.SuccResponse{
+		Msg:  "User created successfully",
+		Data: user,
+	})
 }
 
 func (u *UserHandler) GetUserByEmail(ctx *fiber.Ctx) error {
 	email := ctx.Params("email")
 	user, err := u.service.GetUserByEmail(ctx.Context(), email)
 	if err != nil {
-		return ctx.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return ctx.Status(http.StatusOK).JSON(response.ErrNotFound)
 	}
-	return ctx.Status(http.StatusOK).JSON(user)
+	return ctx.Status(fiber.StatusOK).JSON(response.SuccResponse{
+		Msg:  "User found successfully",
+		Data: user,
+	})
 }

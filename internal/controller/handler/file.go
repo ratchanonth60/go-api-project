@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"project-api/internal/core/model/response"
 	In "project-api/internal/core/port/service"
 
 	"github.com/gofiber/fiber/v2"
@@ -21,43 +22,78 @@ func NewFileHandler(userService In.IUserService, s3Service In.IS3Service) *FileH
 func (f *FileHeader) UploadFile(c *fiber.Ctx) error {
 	var expirt time.Duration = 0
 
-	file, err := c.FormFile("file")
+	// รับไฟล์หลายไฟล์จาก field "files" (เปลี่ยนจาก "file" เพื่อความชัดเจน)
+	form, err := c.MultipartForm()
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Failed to get file", "error": err.Error()})
+		return c.Status(fiber.StatusOK).JSON(response.ErrorResponse{
+			Code: fiber.StatusBadRequest,
+			Msg:  "Failed to parse multipart form",
+			Data: err.Error(),
+		})
 	}
 
-	fileURL, err := f.S3service.UploadFile(c, file, &expirt)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Failed to upload", "error": err.Error()})
+	files := form.File["files"]
+	if len(files) == 0 {
+		return c.Status(fiber.StatusOK).JSON(response.ErrorResponse{
+			Code: fiber.StatusBadRequest,
+			Msg:  "Requires at least one file in 'files' field",
+			Data: nil,
+		})
 	}
 
-	return c.JSON(fiber.Map{"message": "File uploaded", "url": fileURL})
+	// สมมติว่า S3Service.UploadFile รับ []*multipart.FileHeader และคืน []string
+	fileURLs, err := f.S3service.UploadFile(c, files, &expirt)
+	if err != nil {
+		return c.Status(fiber.StatusOK).JSON(response.ErrorResponse{
+			Code: fiber.StatusInternalServerError,
+			Msg:  "Fail to UploadFile",
+			Data: err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response.SuccResponse{
+		Msg:  fmt.Sprintf("Successfully uploaded %d file(s)", len(fileURLs)),
+		Data: fileURLs,
+	})
 }
 
 func (f *FileHeader) DeleteFile(c *fiber.Ctx) error {
 	key := c.Params("key")
 	if key != "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Missing key"})
+		return c.Status(fiber.StatusOK).JSON(response.ErrorResponse{
+			Code: fiber.StatusBadRequest,
+			Msg:  "Failed to delete file, key is required",
+		})
 	}
 
 	if err := f.S3service.DeleteFile(c, key); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Failed to download", "error": err.Error()})
+		return c.Status(fiber.StatusInternalServerError).JSON(response.ErrorResponse{
+			Code: fiber.StatusInternalServerError,
+			Msg:  "Fail to delete file.",
+			Data: err.Error(),
+		})
 	}
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "File deleted"})
+	return c.Status(fiber.StatusOK).JSON(response.SuccResponse{
+		Msg: "Successfully deleted file.",
+	})
 }
 
 func (f *FileHeader) DownloadFile(c *fiber.Ctx) error {
 	key := c.Params("key")
 	if key == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Missing key"})
+		return c.Status(fiber.StatusOK).JSON(response.ErrorResponse{
+			Code: fiber.StatusBadRequest,
+			Msg:  "Error: File key is required",
+		})
 	}
 
 	// Download the file using S3service
 	data, file, err := f.S3service.DownloadFile(c, key)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"message": "Failed to download file",
-			"error":   err.Error(),
+		return c.Status(fiber.StatusOK).JSON(response.ErrorResponse{
+			Code: fiber.StatusInternalServerError,
+			Msg:  "Error: Fail to download file.",
+			Data: err.Error(),
 		})
 	}
 

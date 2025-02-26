@@ -8,17 +8,20 @@ import (
 	"project-api/internal/core/entity"
 	In "project-api/internal/core/port/repository"
 	"project-api/internal/infra/logger"
+	"project-api/internal/infra/redis"
 
 	"go.uber.org/zap"
 )
 
 type UserService struct {
-	repo In.IUserRepository
+	repo  In.IUserRepository
+	redis *redis.RedisClient
 }
 
-func NewUserService(repo In.IUserRepository) *UserService {
+func NewUserService(repo In.IUserRepository, redisClient *redis.RedisClient) *UserService {
 	return &UserService{
-		repo: repo,
+		repo:  repo,
+		redis: redisClient,
 	}
 }
 
@@ -27,7 +30,7 @@ func (u *UserService) Create(ctx context.Context, user *entity.User) error {
 	if err := u.repo.Create(ctx, user); err != nil {
 		return wrapError(ErrCreateUser, err) // Wrap repository errors
 	}
-
+	// u.invalidateCache(ctx, user)
 	return nil
 }
 
@@ -83,4 +86,17 @@ func (s *UserService) ConfirmEmail(ctx context.Context, token string) error {
 
 func (u *UserService) Update(ctx context.Context, entity *entity.User) error {
 	return u.repo.Update(ctx, entity)
+}
+
+func (u *UserService) invalidateCache(ctx context.Context, user *entity.User) {
+	keys := []string{
+		fmt.Sprintf("user:id:%d", user.ID),
+		fmt.Sprintf("user:email:%s", user.Email),
+		fmt.Sprintf("user:name:%s", user.UserName),
+	}
+	for _, key := range keys {
+		if err := u.redis.DeleteFromCache(ctx, key); err != nil {
+			logger.Warn("Failed to delete cache", zap.String("key", key), zap.Error(err))
+		}
+	}
 }

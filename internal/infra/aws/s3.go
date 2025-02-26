@@ -6,13 +6,13 @@ import (
 	"io"
 	"mime/multipart"
 	"project-api/internal/infra/config"
+	"sync"
 	"time"
 
-	"github.com/gofiber/storage/s3/v2"
 	"project-api/internal/core/port/repository"
-)
 
-var DefaultExpiry time.Duration = 0
+	"github.com/gofiber/storage/s3/v2"
+)
 
 type StorageWrapper struct {
 	*s3.Storage
@@ -57,6 +57,36 @@ func (s *StorageWrapper) UploadFile(file *multipart.FileHeader, expir *time.Dura
 	fileURL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", config.Bucket, config.Region, key)
 
 	return fileURL, nil
+}
+
+func (s *StorageWrapper) UploadMultipleFiles(files []*multipart.FileHeader, expir *time.Duration) ([]string, error) {
+	var (
+		fileURLs     []string
+		uploadErrors []error
+		mu           sync.Mutex
+		wg           sync.WaitGroup
+	)
+
+	for _, file := range files {
+		wg.Add(1)
+		go func(file *multipart.FileHeader) {
+			defer wg.Done()
+			fileURL, err := s.UploadFile(file, expir)
+			mu.Lock()
+			if err != nil {
+				uploadErrors = append(uploadErrors, err)
+			} else {
+				fileURLs = append(fileURLs, fileURL)
+			}
+			mu.Unlock()
+		}(file)
+	}
+	wg.Wait()
+
+	if len(uploadErrors) > 0 {
+		return fileURLs, fmt.Errorf("failed to upload %d file(s): %v", len(uploadErrors), uploadErrors)
+	}
+	return fileURLs, nil
 }
 
 // Download ดึงไฟล์จาก S3

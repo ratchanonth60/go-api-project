@@ -2,24 +2,24 @@ package service
 
 import (
 	"errors"
-	"fmt"
 	"mime/multipart"
-	"project-api/internal/core/common/utils"
 	"project-api/internal/core/entity"
 	In "project-api/internal/core/port/repository"
 	InS "project-api/internal/core/port/service"
 	"project-api/internal/infra/logger"
-
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"go.uber.org/zap"
 )
 
+// S3Service handles file operations with S3 and database
 type S3Service struct {
 	FileRepo In.IFileRepository
 	S3       In.IS3Repository
 }
 
+// NewS3Service creates a new S3Service instance
 func NewS3Service(fileRepo In.IFileRepository, s3Repo In.IS3Repository) InS.IS3Service {
 	return &S3Service{
 		S3:       s3Repo,
@@ -27,178 +27,108 @@ func NewS3Service(fileRepo In.IFileRepository, s3Repo In.IS3Repository) InS.IS3S
 	}
 }
 
-func (s *S3Service) UploadFile(c *fiber.Ctx, file *multipart.FileHeader, expir *time.Duration) (string, error) {
-	if expir == nil {
-		logger.Error("Expiration duration is required")
-		return "", errors.New("expiration duration is required")
+func (s *S3Service) UploadFile(c *fiber.Ctx, files []*multipart.FileHeader, expir *time.Duration) ([]string, error) {
+	if len(files) == 0 {
+		logger.Error("No files provided for upload")
+		return nil, errors.New("at least one file is required")
 	}
 
-	// Validate file
-	if file.Size > 10<<20 { // 10MB limit, adjust as needed
-		logger.Error("File size exceeds 10MB limit")
-		return "", errors.New("file size exceeds 10MB limit")
-	}
-
-	userIDFromContext, ok := utils.GetUserIDFromContext(c.UserContext())
-	if !ok {
-		logger.Error(" Context error")
-		return "", errors.New("authentication error")
-	}
-
-	// Generate a unique key (e.g., using UUID or timestamp to prevent overwrites)
-	// Upload to S3 first (outside transaction due to S3's nature)
-	key := fmt.Sprintf("file/%s/%s", file.Header.Get("Content-Type"), file.Filename)
-
-	filePath, err := s.S3.UploadFile(file, expir)
+	userID, err := s.getUserID(c)
 	if err != nil {
-		logger.Error("Failed to upload file to S3: " + err.Error())
-		return "", errors.New("failed to upload file to S3: " + err.Error())
+		return nil, err
 	}
 
-	// Start transaction for database operation
+	var urls []string
+	keys := make([]string, len(files))
+	for i, file := range files {
+		if err := s.validateUploadInput(file, expir); err != nil {
+			return nil, err
+		}
+
+		key := s.generateKey(file)
+		url, err := s.uploadToS3(file, key, expir)
+		if err != nil {
+			// Cleanup ไฟล์ที่อัปโหลดไปแล้ว
+			for _, uploadedKey := range keys[:i] {
+				s.cleanupS3File(uploadedKey)
+			}
+			return nil, err
+		}
+		urls = append(urls, url)
+		keys[i] = key
+	}
+
+	// บันทึก metadata ใน transaction เดียว
 	tx := s.FileRepo.BeginTransaction(c.Context())
 	if tx.Error != nil {
-		// Cleanup S3 file on transaction failure
-		s.S3.DeleteFile(key) // Ignore error for simplicity; log in production
-		return "", errors.New("failed to start transaction: " + tx.Error.Error())
+		logger.Error("Failed to start transaction", zap.Error(tx.Error))
+		s.cleanupS3Files(keys) // Cleanup ถ้าเริ่ม transaction ไม่ได้
+		return nil, errors.New("failed to start transaction")
 	}
 
-	var existingFile entity.File
-	if err := s.FileRepo.FindByKey(c.Context(), key, &existingFile); err == nil && !existingFile.IsDeleted {
-		tx.Rollback()
-		s.S3.DeleteFile(key) // Cleanup new upload
-		return "", errors.New("file already exists for this user")
-	}
-
-	// Create file entity
-	newFile := &entity.File{
-		UserID:   userIDFromContext.UserID,
-		FileName: file.Filename,
-		FileSize: file.Size,
-		FileType: file.Header.Get("Content-Type"),
-		FilePath: key,
-		UrlPath:  filePath,
-	}
-
-	// Save to database
-	if err := s.FileRepo.Create(c.Context(), newFile); err != nil {
-		tx.Rollback()
-		// Cleanup S3 file on DB failure
-		if delErr := s.S3.DeleteFile(key); delErr != nil {
-			// Log this error in production; file is orphaned
-			logger.Error("Failed to delete file from S3: " + delErr.Error())
+	for i, file := range files {
+		if err := s.checkFileExists(c, tx, keys[i]); err != nil {
+			tx.Rollback()
+			s.cleanupS3Files(keys)
+			return nil, err
 		}
-		return "", errors.New("failed to save file metadata: " + err.Error())
+
+		newFile := s.createFileEntity(userID, file, keys[i], urls[i])
+		if err := s.FileRepo.Create(c.Context(), newFile); err != nil {
+			tx.Rollback()
+			logger.Error("Failed to save file metadata",
+				zap.String("key", keys[i]),
+				zap.Error(err))
+			s.cleanupS3Files(keys)
+			return nil, errors.New("failed to save file metadata")
+		}
 	}
 
-	// Commit transaction
 	if err := tx.Commit().Error; err != nil {
 		tx.Rollback()
-		s.S3.DeleteFile(key) // Cleanup
-		logger.Error("Failed to commit transaction: " + err.Error())
-		return "", errors.New("failed to commit transaction: " + err.Error())
+		logger.Error("Failed to commit transaction", zap.Error(err))
+		s.cleanupS3Files(keys)
+		return nil, errors.New("failed to commit transaction")
 	}
 
-	return filePath, nil
+	return urls, nil
 }
 
+// DeleteFile marks a file as deleted in the database and removes it from S3
 func (s *S3Service) DeleteFile(c *fiber.Ctx, key string) error {
-	userIDFromContext, ok := utils.GetUserIDFromContext(c.UserContext())
-	if !ok {
-		return errors.New("authentication error")
+	userID, err := s.getUserID(c)
+	if err != nil {
+		return err
 	}
 
-	// Start transaction
-	tx := s.FileRepo.BeginTransaction(c.Context())
-	if tx.Error != nil {
-		return errors.New("failed to start transaction: " + tx.Error.Error())
+	file, err := s.markFileAsDeleted(c, key, userID)
+	if err != nil {
+		return err
 	}
-
-	// Find file with lock to prevent concurrent modifications
-	var file entity.File
-	if err := s.FileRepo.FindByKeyForUpdate(c.Context(), key, &file); err != nil {
-		tx.Rollback()
-		return errors.New("file not found or already deleted")
-	}
-
-	// Check ownership
-	if file.UserID != userIDFromContext.UserID {
-		tx.Rollback()
-		return errors.New("unauthorized: you do not own this file")
-	}
-
-	// Idempotency check
-	if file.IsDeleted {
-		tx.Rollback()
-		return nil
-	}
-
-	// Mark file as deleted in DB first
-	file.IsDeleted = true
-	if err := s.FileRepo.Update(c.Context(), &file); err != nil {
-		tx.Rollback()
-		return errors.New("failed to mark file as deleted: " + err.Error())
-	}
-
-	// Commit DB transaction before S3 operation
-	if err := tx.Commit().Error; err != nil {
-		tx.Rollback()
-		return errors.New("failed to commit transaction: " + err.Error())
-	}
-
-	// Delete from S3 (outside transaction)
 
 	if err := s.S3.DeleteFile(file.FilePath); err != nil {
-		return errors.New("file marked as deleted in DB but failed to delete from S3: " + err.Error())
+		return s.handleS3DeleteError(file.FilePath, err)
 	}
 
 	return nil
 }
 
+// DownloadFile retrieves a file from S3 after verifying ownership
 func (s *S3Service) DownloadFile(c *fiber.Ctx, key string) ([]byte, *entity.File, error) {
-	userIDFromContext, ok := utils.GetUserIDFromContext(c.UserContext())
-	if !ok {
-		logger.Error("Context error")
-		return nil, nil, errors.New("authentication error")
+	userID, err := s.getUserID(c)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	// Start transaction
-	tx := s.FileRepo.BeginTransaction(c.Context())
-	if tx.Error != nil {
-		logger.Error("Failed to start transaction: " + tx.Error.Error())
-		return nil, nil, errors.New("failed to start transaction: " + tx.Error.Error())
-	}
-	defer tx.Rollback() // Rollback if not committed
-
-	// Find file with lock
-	var file entity.File
-	if err := s.FileRepo.FindByKeyForUpdate(c.Context(), key, &file); err != nil {
-		logger.Error("File not found: " + err.Error())
-		return nil, nil, errors.New("file not found")
+	file, err := s.verifyAndLockFile(c, key, userID)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	// Check ownership and deletion status
-	if file.UserID != userIDFromContext.UserID {
-		logger.Error("Unauthorized access attempt")
-		return nil, nil, errors.New("unauthorized: you do not own this file")
-	}
-	if file.IsDeleted {
-		logger.Error("File already deleted")
-		return nil, nil, errors.New("file has been deleted")
-	}
-
-	// Download from S3
 	data, err := s.S3.DownloadFile(file.FilePath)
 	if err != nil {
-		logger.Error("Failed to download file from S3: " + err.Error())
-		return nil, nil, errors.New("failed to download file from S3: " + err.Error())
+		return nil, nil, s.handleS3DownloadError(err)
 	}
 
-	// Commit transaction (no changes to DB, but maintains consistency)
-	if err := tx.Commit().Error; err != nil {
-		logger.Error("Failed to commit transaction: " + err.Error())
-		return nil, nil, errors.New("failed to commit transaction: " + err.Error())
-	}
-
-	return data, &file, nil
+	return data, file, nil
 }

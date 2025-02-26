@@ -12,11 +12,6 @@ type AppConfig struct {
 		DBName   string `yaml:"db_name" env:"POSTGRES_DB"`
 		SSLMode  string `yaml:"sslmode" env:"POSTGRES_SSLMODE" envDefault:"require"`
 	} `yaml:"database"`
-	Cache struct {
-		Address     string `yaml:"address" env:"REDIS_HOST"`
-		Port        string `yaml:"port" env:"REDIS_PORT"`
-		MaxSizePool string `yaml:"max_size_pool" env:"REDIS_MAX_POOL"`
-	} `yaml:"cache"`
 	JWT struct {
 		Signed string `yaml:"signed" env:"JWT_SIGNED"`
 	} `yaml:"jwt"`
@@ -46,4 +41,8 @@ type AppConfig struct {
 		SecretKey string `yaml:"secret_key_sqs" env:"SECRET_SQS"`
 		Endpoint  string `yaml:"endpoint_sqs" env:"ENDPOINT_SQS"`
 	} `yaml:"sqs"`
+	Redis struct {
+		Endpoint string `yaml:"endpoint" env:"REDIS_ENDPOINT"`
+		Password string `yaml:"password" env:"REDIS_PASSWORD"`
+	} `yaml:"redis"`
 }

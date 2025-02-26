@@ -15,6 +15,7 @@ import (
 	"project-api/internal/infra/aws"
 	"project-api/internal/infra/config"
 	"project-api/internal/infra/logger"
+	"project-api/internal/infra/redis"
 	"project-api/internal/infra/repository"
 	"project-api/internal/task"
 
@@ -98,8 +99,9 @@ func initializeApp() (*Application, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize Machinery server: %w", err)
 	}
+	redisClient := redis.NewRedisClient()
 	// Initialize services
-	services := initializeServices(db, machineryServer)
+	services := initializeServices(db, machineryServer, redisClient)
 
 	// Create router
 	router, err := controller.New(services)
@@ -116,7 +118,7 @@ func initializeApp() (*Application, error) {
 	}, nil
 }
 
-func initializeServices(db *config.GormDB, machineryServer *machinery.Server) *controller.Services {
+func initializeServices(db *config.GormDB, machineryServer *machinery.Server, redisClient *redis.RedisClient) *controller.Services {
 	s3Config := config.Config.GetS3Config()
 	credential := config.Config.GetCredentials()
 
@@ -129,7 +131,7 @@ func initializeServices(db *config.GormDB, machineryServer *machinery.Server) *c
 
 	fileRepo := repository.NewFileRepository(db.DB)
 	userRepo := repository.NewUserRepository(db.DB)
-	userService := service.NewUserService(userRepo)
+	userService := service.NewUserService(userRepo, redisClient)
 	s3Repo := aws.New(awsConfig)
 	fileService := service.NewS3Service(fileRepo, s3Repo)
 

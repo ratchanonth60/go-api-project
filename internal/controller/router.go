@@ -6,12 +6,10 @@ import (
 	"project-api/internal/controller/handler"
 	"project-api/internal/core/middleware"
 	In "project-api/internal/core/port/service"
-	"project-api/internal/infra/config"
 	"project-api/internal/infra/logger"
 	"strings"
 
 	"github.com/RichardKnop/machinery/v2"
-	jwtware "github.com/gofiber/contrib/jwt"
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
 )
@@ -53,8 +51,6 @@ func New(services *Services) (*Router, error) {
 
 // setupRoutes configures all API routes
 func (r *Router) setupRoutes(services *Services) {
-	// Configure JWT middleware
-	r.setupJWTMiddleware()
 
 	// health check
 	r.app.Get("/", func(c *fiber.Ctx) error {
@@ -68,17 +64,6 @@ func (r *Router) setupRoutes(services *Services) {
 	// Protected routes
 	v1 := r.app.Group("/api/v1", middleware.JWTAuthMiddleware)
 	r.setupProtectedRoutes(v1, services)
-}
-
-// setupJWTMiddleware configures JWT authentication
-func (r *Router) setupJWTMiddleware() {
-	r.app.Use(jwtware.New(jwtware.Config{
-		SigningKey: jwtware.SigningKey{Key: []byte(config.Config.JWT.Signed)},
-		Filter: func(c *fiber.Ctx) bool {
-			return isExcludedRoute(c.Path())
-		},
-		ErrorHandler: jwtErrorHandler,
-	}))
 }
 
 // setupAuthRoutes configures authentication routes

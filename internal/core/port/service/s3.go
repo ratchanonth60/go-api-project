@@ -9,7 +9,7 @@ import (
 )
 
 type IS3Service interface {
-	UploadFile(c *fiber.Ctx, file *multipart.FileHeader, expir *time.Duration) (string, error)
 	DeleteFile(c *fiber.Ctx, key string) error
 	DownloadFile(c *fiber.Ctx, key string) ([]byte, *entity.File, error)
+	UploadFile(c *fiber.Ctx, files []*multipart.FileHeader, expir *time.Duration) ([]string, error)
 }

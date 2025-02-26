@@ -45,7 +45,7 @@ func NewMachineryServer() (*machinery.Server, error) {
 	cfg := &config.Config{
 		Broker:        brokerSQS,
 		DefaultQueue:  "golang-queue",
-		ResultBackend: "", // ไม่ใช้ result backend
+		ResultBackend: "",
 		SQS: &config.SQSConfig{
 			Client:            sqsClient, // ใช้ SQS client ที่เราสร้าง
 			VisibilityTimeout: &visibilityTimeout,

@@ -32,10 +32,10 @@ func NewAuthHandler(service In.IUserService, machineryServer *machinery.Server) 
 func (l *AuthHandler) LoginHandle(c *fiber.Ctx) error {
 	var req request.LoginRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(response.ErrParser)
+		return c.Status(fiber.StatusOK).JSON(response.ErrParser)
 	}
 	if err := req.Validate(); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(response.ErrorResponse{
+		return c.Status(fiber.StatusOK).JSON(response.ErrorResponse{
 			Code: http.StatusBadRequest,
 			Msg:  "Bad request, please check the request body",
 			Data: err.Error(),
@@ -43,10 +43,10 @@ func (l *AuthHandler) LoginHandle(c *fiber.Ctx) error {
 	}
 	user, err := l.service.GetUserByName(c.Context(), req.UserName)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(response.ErrAuth)
+		return c.Status(fiber.StatusOK).JSON(response.ErrAuth)
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		return c.Status(http.StatusUnauthorized).JSON(response.ErrorResponse{
+		return c.Status(fiber.StatusOK).JSON(response.ErrorResponse{
 			Code: http.StatusUnauthorized,
 			Msg:  "Password or username is incorrect",
 			Data: err.Error(),
@@ -56,9 +56,8 @@ func (l *AuthHandler) LoginHandle(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	return c.Status(http.StatusOK).JSON(
+	return c.Status(fiber.StatusOK).JSON(
 		response.SuccResponse{
-			Code: http.StatusOK,
 			Msg:  "successfully logged in",
 			Data: token,
 		})
@@ -67,25 +66,25 @@ func (l *AuthHandler) LoginHandle(c *fiber.Ctx) error {
 func (l *AuthHandler) RegisterHandler(c *fiber.Ctx) error {
 	var req request.RegisterRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(response.ErrorResponse{
+		return c.Status(fiber.StatusOK).JSON(response.ErrorResponse{
 			Code: http.StatusBadRequest,
 			Msg:  "bad request, please check the request body",
 			Data: err.Error(),
 		})
 	}
 	if err := req.Validate(); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(response.ErrorResponse{
+		return c.Status(fiber.StatusOK).JSON(response.ErrorResponse{
 			Code: http.StatusBadRequest,
 			Msg:  "Bad request, please check the request body",
 			Data: err.Error(),
 		})
 	}
 	if !req.ConfirmPassword() {
-		return c.Status(http.StatusBadRequest).JSON(response.ErrCofirmPassword)
+		return c.Status(fiber.StatusOK).JSON(response.ErrCofirmPassword)
 	}
 	hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{"error": err.Error()})
 	}
 	token := uuid.New().String()
 	user := request.UserRequest{
@@ -99,10 +98,10 @@ func (l *AuthHandler) RegisterHandler(c *fiber.Ctx) error {
 	}
 	userEntity, err := user.ToEntity()
 	if err != nil {
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{"error": err.Error()})
 	}
 	if err := l.service.Create(c.Context(), userEntity); err != nil {
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{"error": err.Error()})
 	}
 	host := "http://localhost:8000"
 	signature := &tasks.Signature{
@@ -122,18 +121,17 @@ func (l *AuthHandler) RegisterHandler(c *fiber.Ctx) error {
 	}
 	toEntity, err := user.ToEntity()
 	if err != nil {
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{"error": err.Error()})
 	}
 	jsonData, err := toEntity.ToJson()
 	if err != nil {
-		return c.Status(http.StatusInternalServerError).JSON(response.ErrorResponse{
+		return c.Status(fiber.StatusOK).JSON(response.ErrorResponse{
 			Code: fiber.ErrBadGateway.Code,
 			Msg:  "Can't convert user to json",
 			Data: err,
 		})
 	}
-	return c.Status(http.StatusCreated).JSON(response.SuccResponse{
-		Code: http.StatusCreated,
+	return c.Status(fiber.StatusOK).JSON(response.SuccResponse{
 		Msg:  "successfully created user",
 		Data: jsonData,
 	})
@@ -142,13 +140,18 @@ func (l *AuthHandler) RegisterHandler(c *fiber.Ctx) error {
 func (h *AuthHandler) ConfirmEmailHandler(c *fiber.Ctx) error {
 	token := c.Params("token")
 	if token == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Token is required"})
+		return c.Status(fiber.StatusOK).JSON(response.ErrorResponse{
+			Code: http.StatusBadRequest,
+			Msg:  "Missing token",
+		})
 	}
 
 	if err := h.service.ConfirmEmail(c.UserContext(), token); err != nil {
 		logger.Error("Email confirmation failed", zap.Error(err))
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	return c.JSON(fiber.Map{"message": "Email confirmed successfully"})
+	return c.Status(fiber.StatusOK).JSON(response.SuccResponse{
+		Msg: "Email confirmed successfully",
+	})
 }
