@@ -2,6 +2,7 @@ package config
 
 type AppConfig struct {
 	Server struct {
+		Host string `yaml:"host" env:"HOST" envDefault:"localhost"`
 		Port string `yaml:"port" env:"PORT" envDefault:"8000"`
 	} `yaml:"server"`
 	Database struct {

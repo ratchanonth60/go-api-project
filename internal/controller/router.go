@@ -7,7 +7,7 @@ import (
 	"project-api/internal/core/middleware"
 	In "project-api/internal/core/port/service"
 	"project-api/internal/infra/logger"
-	"strings"
+	"github.com/gofiber/template/html/v2"
 
 	"github.com/RichardKnop/machinery/v2"
 	"github.com/gofiber/fiber/v2"
@@ -41,6 +41,7 @@ func New(services *Services) (*Router, error) {
 	// Initialize Fiber with custom configuration
 	app := fiber.New(fiber.Config{
 		ErrorHandler: customErrorHandler,
+		Views:        html.New("./templates", ".html"),
 	})
 
 	// Configure router
@@ -72,6 +73,9 @@ func (r *Router) setupAuthRoutes(group fiber.Router, userService In.IUserService
 	group.Post("/login", authHandler.LoginHandle)
 	group.Post("/register", authHandler.RegisterHandler)
 	group.Get("/confirm/:token", authHandler.ConfirmEmailHandler)
+	group.Post("/resend", authHandler.ResendConfirmationEmailHandler)
+	group.Post("/reset-password", authHandler.ResetPasswordHandler)
+	group.Post("/reset-password/confirm/:token", authHandler.ConfirmResetPasswordHandler)
 }
 
 // setupProtectedRoutes configures authenticated routes
@@ -95,23 +99,6 @@ func (r *Router) setupProtectedRoutes(group fiber.Router, services *Services) {
 			"error": fmt.Sprintf("Cannot %s %s", c.Method(), c.Path()),
 		})
 	})
-}
-
-// isExcludedRoute checks if a path should bypass JWT authentication
-func isExcludedRoute(path string) bool {
-	excludedRoutes := []string{
-		"/",
-		"/api/v1/auth/login",
-		"/api/v1/auth/register",
-		"/api/v1/auth/logout",
-		"/api/v1/auth/confirm",
-	}
-	for _, route := range excludedRoutes {
-		if strings.HasPrefix(path, route) {
-			return true
-		}
-	}
-	return false
 }
 
 // customErrorHandler handles Fiber errors

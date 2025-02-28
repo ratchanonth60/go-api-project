@@ -12,4 +12,7 @@ type IUserService interface {
 	GetUserByEmail(ctx context.Context, email string) (*entity.User, error)
 	GetUserByName(ctx context.Context, username string) (*entity.User, error)
 	ConfirmEmail(ctx context.Context, token string) error
+	ResendConfirmationEmail(ctx context.Context, email string) (*entity.User, error)
+	ResetPassword(ctx context.Context, email string) (*entity.User, error)
+	ConfirmResetPassword(ctx context.Context, token string, newPassword string) error
 }

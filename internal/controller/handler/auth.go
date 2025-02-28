@@ -1,12 +1,14 @@
 package controller
 
 import (
+	"fmt"
 	"net/http"
 
 	"project-api/internal/core/common/utils"
 	"project-api/internal/core/model/request"
 	"project-api/internal/core/model/response"
 	In "project-api/internal/core/port/service"
+	"project-api/internal/infra/config"
 	"project-api/internal/infra/logger"
 
 	"github.com/RichardKnop/machinery/v2"
@@ -84,7 +86,10 @@ func (l *AuthHandler) RegisterHandler(c *fiber.Ctx) error {
 	}
 	hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return c.Status(fiber.StatusOK).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(fiber.StatusOK).JSON(response.ErrorResponse{
+			Code: fiber.StatusUnauthorized,
+			Msg:  "Error hashing password",
+		})
 	}
 	token := uuid.New().String()
 	user := request.UserRequest{
@@ -98,12 +103,18 @@ func (l *AuthHandler) RegisterHandler(c *fiber.Ctx) error {
 	}
 	userEntity, err := user.ToEntity()
 	if err != nil {
-		return c.Status(fiber.StatusOK).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(fiber.StatusOK).JSON(response.ErrorResponse{
+			Code: fiber.StatusUnauthorized,
+			Msg:  "Error to convert to entity",
+		})
 	}
 	if err := l.service.Create(c.Context(), userEntity); err != nil {
-		return c.Status(fiber.StatusOK).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(fiber.StatusOK).JSON(response.ErrorResponse{
+			Code: fiber.StatusInternalServerError,
+			Msg:  "Error to create user",
+		})
 	}
-	host := "http://localhost:8000"
+	host := fmt.Sprintf("http://%s:%s", config.Config.Server.Host, config.Config.Server.Port)
 	signature := &tasks.Signature{
 		Name: "send_confirmation_email",
 		Args: []tasks.Arg{
@@ -153,5 +164,143 @@ func (h *AuthHandler) ConfirmEmailHandler(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(response.SuccResponse{
 		Msg: "Email confirmed successfully",
+	})
+}
+
+func (h *AuthHandler) ResendConfirmationEmailHandler(c *fiber.Ctx) error {
+	var req request.EmailRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusOK).JSON(response.ErrorResponse{
+			Code: http.StatusBadRequest,
+			Msg:  "Bad request, please check the request body",
+			Data: err.Error(),
+		})
+	}
+
+	// ตรวจสอบว่า email ถูกต้อง
+	if req.Email == "" {
+		return c.Status(fiber.StatusOK).JSON(response.ErrorResponse{
+			Code: http.StatusBadRequest,
+			Msg:  "Email is required",
+		})
+	}
+
+	// ส่งคำขอไปยัง service เพื่อสร้าง token ใหม่และอัปเดต user
+	user, err := h.service.ResendConfirmationEmail(c.UserContext(), req.Email)
+	if err != nil {
+		logger.Error("Failed to resend confirmation email", zap.String("email", req.Email), zap.Error(err))
+		return c.Status(fiber.StatusOK).JSON(response.ErrorResponse{
+			Code: http.StatusInternalServerError,
+			Msg:  "Failed to resend confirmation email",
+			Data: err.Error(),
+		})
+	}
+
+	// ส่ง email confirmation ผ่าน Machinery
+	host := fmt.Sprintf("http://%s:%s", config.Config.Server.Host, config.Config.Server.Port)
+	signature := &tasks.Signature{
+		Name: "send_confirmation_email",
+		Args: []tasks.Arg{
+			{Type: "string", Value: user.Email},
+			{Type: "string", Value: user.ConfirmToken},
+			{Type: "string", Value: user.FirstName},
+			{Type: "string", Value: host},
+		},
+	}
+	_, err = h.server.SendTask(signature)
+	if err != nil {
+		logger.Error("Failed to queue resend confirmation email task", zap.String("email", user.Email), zap.Error(err))
+	} else {
+		logger.Info("Successfully queued resend confirmation email task", zap.String("email", user.Email))
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response.SuccResponse{
+		Msg: "Email confirmation re-sent successfully",
+	})
+}
+
+func (h *AuthHandler) ResetPasswordHandler(c *fiber.Ctx) error {
+	req := request.EmailRequest{}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusOK).JSON(response.ErrorResponse{
+			Code: http.StatusBadRequest,
+			Msg:  "Bad request, please check the request body",
+			Data: err.Error(),
+		})
+	}
+
+	// ตรวจสอบว่า email ถูกต้อง
+	if req.Email == "" {
+		return c.Status(fiber.StatusOK).JSON(response.ErrorResponse{
+			Code: http.StatusBadRequest,
+			Msg:  "Email is required",
+		})
+	}
+
+	// ส่งคำขอไปยัง service เพื่อสร้าง reset password token
+	user, err := h.service.ResetPassword(c.UserContext(), req.Email)
+	if err != nil {
+		logger.Error("Failed to request reset password", zap.String("email", req.Email), zap.Error(err))
+		return c.Status(fiber.StatusOK).JSON(response.ErrorResponse{
+			Code: http.StatusInternalServerError,
+			Msg:  "Failed to request reset password",
+			Data: err.Error(),
+		})
+	}
+
+	// ส่ง email reset password ผ่าน Machinery
+	host := fmt.Sprintf("http://%s:%s", config.Config.Server.Host, config.Config.Server.Port)
+	signature := &tasks.Signature{
+		Name: "send_reset_password_email",
+		Args: []tasks.Arg{
+			{Type: "string", Value: user.Email},
+			{Type: "string", Value: user.ResetPasswordToken},
+			{Type: "string", Value: user.FirstName},
+			{Type: "string", Value: host},
+		},
+	}
+	_, err = h.server.SendTask(signature)
+	if err != nil {
+		logger.Error("Failed to queue reset password email task", zap.String("email", user.Email), zap.Error(err))
+	} else {
+		logger.Info("Successfully queued reset password email task", zap.String("email", user.Email))
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response.SuccResponse{
+		Msg: "Reset password email sent successfully",
+	})
+}
+
+func (h *AuthHandler) ConfirmResetPasswordHandler(c *fiber.Ctx) error {
+	var req request.ConfirmResetPassword
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusOK).JSON(response.ErrorResponse{
+			Code: http.StatusBadRequest,
+			Msg:  "Bad request, please check the request body",
+			Data: err.Error(),
+		})
+	}
+
+	// Validate struct
+	if err := req.IsValid(); err {
+		logger.Warn("Validation failed for reset password")
+		return c.Status(fiber.StatusOK).JSON(response.ErrorResponse{
+			Code: http.StatusBadRequest,
+			Msg:  "Validation failed",
+		})
+	}
+
+	// เรียก service เพื่อยืนยันรหัสผ่านใหม่
+	if err := h.service.ConfirmResetPassword(c.UserContext(), req.Token, req.NewPassword); err != nil {
+		logger.Error("Failed to confirm reset password", zap.String("token", req.Token), zap.Error(err))
+		return c.Status(fiber.StatusOK).JSON(response.ErrorResponse{
+			Code: http.StatusInternalServerError,
+			Msg:  "Failed to reset password",
+			Data: err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response.SuccResponse{
+		Msg: "Password reset successfully",
 	})
 }

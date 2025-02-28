@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"project-api/internal/core/common/utils"
@@ -20,7 +21,24 @@ func respondError(w http.ResponseWriter, code int, message string) {
 	json.NewEncoder(w).Encode(map[string]string{"error": message})
 }
 
+// isExcludedRoute checks if a path should bypass JWT authentication
+func isExcludedRoute(path string) bool {
+	excludedRoutes := []*regexp.Regexp{
+		regexp.MustCompile(`^/$`),
+		regexp.MustCompile(`^/api/v1/auth/.*$`),
+	}
+	for _, pattern := range excludedRoutes {
+		if pattern.MatchString(path) {
+			return true
+		}
+	}
+	return false
+}
+
 func JWTAuthMiddleware(c *fiber.Ctx) error { // เปลี่ยน signature เป็น Fiber's Middleware Handler
+	if isExcludedRoute(c.Path()) {
+		return c.Next() // ข้าม middleware ถ้าเป็น excluded route
+	}
 	// Get the authorization header
 	authHeader := c.Get("Authorization") // ใช้ c.Get() แทน r.Header.Get()
 	if authHeader == "" {

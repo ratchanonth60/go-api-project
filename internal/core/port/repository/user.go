@@ -12,4 +12,5 @@ type IUserRepository interface {
 	GetUserByEmail(ctx context.Context, email string) (*entity.User, error)
 	GetUserByName(ctx context.Context, name string) (*entity.User, error)
 	FindByToken(ctx context.Context, token string) (*entity.User, error)
+	FindByResetToken(ctx context.Context, token string) (*entity.User, error)
 }

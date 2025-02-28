@@ -32,6 +32,9 @@ func main() {
 		"send_confirmation_email": func(toEmail, token, name string, host string) error {
 			return task.TaskSendConfirmationEmail(toEmail, token, name, host)
 		},
+		"send_reset_password_email": func(toEmail, token, name string, host string) error {
+			return task.TaskSendResetPasswordEmail(toEmail, token, name, host)
+		},
 	})
 	if err != nil {
 		log.Fatalf("Failed to register tasks: %v", err)

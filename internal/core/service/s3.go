@@ -83,8 +83,8 @@ func (s *S3Service) UploadFile(c *fiber.Ctx, files []*multipart.FileHeader, expi
 			return nil, errors.New("failed to save file metadata")
 		}
 	}
-
-	if err := tx.Commit().Error; err != nil {
+	err = tx.Commit().Error
+	if err != nil {
 		tx.Rollback()
 		logger.Error("Failed to commit transaction", zap.Error(err))
 		s.cleanupS3Files(keys)
